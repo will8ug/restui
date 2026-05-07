@@ -1,0 +1,24 @@
+@host = https://httpbin.org
+@content_type = application/json
+
+### Get request
+GET {{host}}/get
+Accept: {{content_type}}
+
+### Post with JSON body
+POST {{host}}/post
+Content-Type: {{content_type}}
+
+{
+  "name": "restui",
+  "version": "0.1.0"
+}
+
+### Get with query params
+GET {{host}}/get
+  ?search=rust
+  &limit=10
+
+### Delete request
+DELETE {{host}}/delete
+Authorization: Bearer test-token-123

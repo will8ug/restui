@@ -1,0 +1,18 @@
+[package]
+name = "restui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Will Yuan"]
+description = "A TUI REST client - terminal alternative to VS Code REST Client"
+license = "MIT"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { version = "1", features = ["rt", "macros"] }
