@@ -1,5 +1,7 @@
 # restui
 
+[![CI](https://github.com/will8ug/restui/actions/workflows/ci.yml/badge.svg)](https://github.com/will8ug/restui/actions/workflows/ci.yml)
+
 A terminal UI REST client for `.http` request files.
 
 ## Features
