@@ -1,7 +1,7 @@
-use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::Frame;
 use serde_json::Value;
 
 use crate::app::{App, Focus};
@@ -68,8 +68,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
 
     use crate::app::{App, AppStatus};
     use crate::parser::ParsedRequest;
@@ -93,7 +93,10 @@ mod tests {
         AppResponse {
             status: 200,
             status_text: "OK".to_string(),
-            headers: vec![("content-type".to_string(), content_type.unwrap_or("text/plain").to_string())],
+            headers: vec![(
+                "content-type".to_string(),
+                content_type.unwrap_or("text/plain").to_string(),
+            )],
             body: body.to_string(),
             content_type: content_type.map(str::to_owned),
             duration: Duration::from_millis(120),
@@ -104,7 +107,9 @@ mod tests {
     fn render_app(app: &App) -> TestBackend {
         let backend = TestBackend::new(50, 10);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|frame| render(app, frame, frame.area())).unwrap();
+        terminal
+            .draw(|frame| render(app, frame, frame.area()))
+            .unwrap();
         terminal.backend().clone()
     }
 
@@ -145,7 +150,10 @@ mod tests {
 
     #[test]
     fn test_renders_json_pretty_printed() {
-        let app = app_with_response(Some(sample_response(r#"{"user":{"name":"alice"}}"#, Some("application/json"))));
+        let app = app_with_response(Some(sample_response(
+            r#"{"user":{"name":"alice"}}"#,
+            Some("application/json"),
+        )));
 
         let backend = render_app(&app);
         let text = buffer_text(&backend);

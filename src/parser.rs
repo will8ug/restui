@@ -60,7 +60,11 @@ impl fmt::Display for ParseError {
 }
 
 pub fn parse(input: &str) -> Result<ParsedFile, ParseError> {
-    let lines: Vec<(usize, &str)> = input.lines().enumerate().map(|(index, line)| (index + 1, line)).collect();
+    let lines: Vec<(usize, &str)> = input
+        .lines()
+        .enumerate()
+        .map(|(index, line)| (index + 1, line))
+        .collect();
     let mut variables = Vec::new();
     let mut requests = Vec::new();
     let mut index = 0;
@@ -271,7 +275,10 @@ fn parse_variable_line(line: &str, line_number: usize) -> Result<Variable, Parse
 
 fn parse_delimiter_line(line: &str) -> Option<Option<String>> {
     let trimmed = line.trim_start();
-    let marker_length = trimmed.chars().take_while(|character| *character == '#').count();
+    let marker_length = trimmed
+        .chars()
+        .take_while(|character| *character == '#')
+        .count();
 
     if marker_length < 3 {
         return None;
@@ -338,7 +345,10 @@ mod tests {
             parsed.requests[0].headers,
             vec![("Content-Type".to_string(), "application/json".to_string())]
         );
-        assert_eq!(parsed.requests[0].body, Some("{\"name\":\"alice\"}".to_string()));
+        assert_eq!(
+            parsed.requests[0].body,
+            Some("{\"name\":\"alice\"}".to_string())
+        );
     }
 
     #[test]
@@ -397,10 +407,14 @@ mod tests {
 
     #[test]
     fn parse_multiline_query_params() {
-        let input = "GET https://example.com/users\n  ?page=1\n  &limit=20\nAccept: application/json";
+        let input =
+            "GET https://example.com/users\n  ?page=1\n  &limit=20\nAccept: application/json";
         let parsed = parse_ok(input);
 
-        assert_eq!(parsed.requests[0].url, "https://example.com/users?page=1&limit=20");
+        assert_eq!(
+            parsed.requests[0].url,
+            "https://example.com/users?page=1&limit=20"
+        );
         assert_eq!(
             parsed.requests[0].headers,
             vec![("Accept".to_string(), "application/json".to_string())]
@@ -433,7 +447,8 @@ mod tests {
 
     #[test]
     fn parse_request_without_name() {
-        let parsed = parse_ok("GET https://example.com/users\n### Named\nGET https://example.com/admin");
+        let parsed =
+            parse_ok("GET https://example.com/users\n### Named\nGET https://example.com/admin");
 
         assert_eq!(parsed.requests.len(), 2);
         assert_eq!(parsed.requests[0].name, None);
@@ -465,7 +480,8 @@ mod tests {
 
     #[test]
     fn parse_headers() {
-        let input = "GET https://example.com\nAuthorization: Bearer token\nAccept: application/json";
+        let input =
+            "GET https://example.com\nAuthorization: Bearer token\nAccept: application/json";
         let parsed = parse_ok(input);
 
         assert_eq!(

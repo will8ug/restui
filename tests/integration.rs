@@ -39,8 +39,8 @@ async fn test_full_flow_parse_resolve_send() {
     );
 
     let parsed = parser::parse(&input).expect("request file should parse");
-    let resolved = vars::resolve(&parsed.variables, &parsed.requests[0])
-        .expect("variables should resolve");
+    let resolved =
+        vars::resolve(&parsed.variables, &parsed.requests[0]).expect("variables should resolve");
     let response = send_via_blocking_client(resolved)
         .await
         .expect("request should succeed");
@@ -68,7 +68,10 @@ fn test_multiple_requests_parsed_and_resolved() {
 
     assert_eq!(first.method, parser::Method::Get);
     assert_eq!(first.url, "https://api.example.com/users");
-    assert_eq!(first.headers, vec![("Accept".to_string(), "application/json".to_string())]);
+    assert_eq!(
+        first.headers,
+        vec![("Accept".to_string(), "application/json".to_string())]
+    );
     assert_eq!(first.body, None);
 
     assert_eq!(second.method, parser::Method::Patch);
@@ -76,7 +79,10 @@ fn test_multiple_requests_parsed_and_resolved() {
     assert_eq!(
         second.headers,
         vec![
-            ("Authorization".to_string(), "Bearer secret-token".to_string()),
+            (
+                "Authorization".to_string(),
+                "Bearer secret-token".to_string()
+            ),
             ("Content-Type".to_string(), "application/json".to_string()),
         ]
     );

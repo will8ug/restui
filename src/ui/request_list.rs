@@ -1,7 +1,7 @@
-use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
+use ratatui::Frame;
 
 use crate::app::{App, Focus};
 use crate::parser::ParsedRequest;
@@ -18,8 +18,16 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
         .iter()
         .enumerate()
         .map(|(index, request)| {
-            let selected_prefix = if index == app.selected_index { ">" } else { " " };
-            let sent_prefix = if app.last_sent_index == Some(index) { "●" } else { " " };
+            let selected_prefix = if index == app.selected_index {
+                ">"
+            } else {
+                " "
+            };
+            let sent_prefix = if app.last_sent_index == Some(index) {
+                "●"
+            } else {
+                " "
+            };
             let label = request_label(request);
             ListItem::new(format!("{selected_prefix}{sent_prefix} {label}"))
         })
@@ -66,8 +74,8 @@ fn http_url_path(url: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
 
     use crate::app::{App, AppStatus};
     use crate::http::AppResponse;
@@ -102,7 +110,9 @@ mod tests {
     fn render_app(app: &App) -> TestBackend {
         let backend = TestBackend::new(40, 6);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|frame| render(app, frame, frame.area())).unwrap();
+        terminal
+            .draw(|frame| render(app, frame, frame.area()))
+            .unwrap();
         terminal.backend().clone()
     }
 
@@ -134,7 +144,11 @@ mod tests {
 
     #[test]
     fn test_renders_selected_highlight() {
-        let mut app = app_with_requests(vec![request(Some("List users"), Method::Get, "https://example.com/users")]);
+        let mut app = app_with_requests(vec![request(
+            Some("List users"),
+            Method::Get,
+            "https://example.com/users",
+        )]);
         app.selected_index = 0;
 
         let backend = render_app(&app);
@@ -149,7 +163,11 @@ mod tests {
     fn test_renders_sent_indicator() {
         let mut app = app_with_requests(vec![
             request(Some("List users"), Method::Get, "https://example.com/users"),
-            request(Some("Create user"), Method::Post, "https://example.com/users"),
+            request(
+                Some("Create user"),
+                Method::Post,
+                "https://example.com/users",
+            ),
         ]);
         app.selected_index = 0;
         app.last_sent_index = Some(1);

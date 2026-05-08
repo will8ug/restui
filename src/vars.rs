@@ -144,10 +144,7 @@ mod tests {
     #[test]
     fn resolve_var_in_header_value() {
         let mut request = request("https://api.com/users");
-        request.headers = vec![(
-            "Authorization".to_string(),
-            "Bearer {{token}}".to_string(),
-        )];
+        request.headers = vec![("Authorization".to_string(), "Bearer {{token}}".to_string())];
 
         let resolved = resolve(&[variable("token", "abc123")], &request).unwrap();
 
@@ -171,8 +168,7 @@ mod tests {
     fn resolve_multiple_vars_in_body() {
         let mut request = request("https://api.com/users");
         request.body = Some(
-            "{\"user\":\"{{username}}\",\"role\":\"{{role}}\",\"env\":\"{{env}}\"}"
-                .to_string(),
+            "{\"user\":\"{{username}}\",\"role\":\"{{role}}\",\"env\":\"{{env}}\"}".to_string(),
         );
 
         let resolved = resolve(

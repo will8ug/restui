@@ -59,7 +59,9 @@ impl App {
                         0 => 0,
                         len => self.selected_index.min(len.saturating_sub(1)),
                     };
-                    self.last_sent_index = self.last_sent_index.filter(|index| *index < self.requests.len());
+                    self.last_sent_index = self
+                        .last_sent_index
+                        .filter(|index| *index < self.requests.len());
                     self.status = AppStatus::Idle;
                 }
                 Err(error) => {
@@ -67,18 +69,25 @@ impl App {
                 }
             },
             Err(error) => {
-                self.status = AppStatus::Error(format!("Failed to read {}: {error}", self.file_path.display()));
+                self.status = AppStatus::Error(format!(
+                    "Failed to read {}: {error}",
+                    self.file_path.display()
+                ));
             }
         }
     }
 
     pub fn update(&mut self, msg: Message) -> Command {
         match msg {
-            Message::SelectNext if self.focus == Focus::RequestList && !self.requests.is_empty() => {
+            Message::SelectNext
+                if self.focus == Focus::RequestList && !self.requests.is_empty() =>
+            {
                 self.selected_index = (self.selected_index + 1) % self.requests.len();
                 Command::None
             }
-            Message::SelectPrev if self.focus == Focus::RequestList && !self.requests.is_empty() => {
+            Message::SelectPrev
+                if self.focus == Focus::RequestList && !self.requests.is_empty() =>
+            {
                 self.selected_index = if self.selected_index == 0 {
                     self.requests.len() - 1
                 } else {
@@ -138,10 +147,9 @@ impl App {
                 self.size = (width, height);
                 Command::None
             }
-            Message::SelectNext
-            | Message::SelectPrev
-            | Message::ScrollUp
-            | Message::ScrollDown => Command::None,
+            Message::SelectNext | Message::SelectPrev | Message::ScrollUp | Message::ScrollDown => {
+                Command::None
+            }
         }
     }
 }
@@ -174,7 +182,10 @@ mod tests {
     }
 
     fn parsed_file(requests: Vec<ParsedRequest>, variables: Vec<Variable>) -> ParsedFile {
-        ParsedFile { requests, variables }
+        ParsedFile {
+            requests,
+            variables,
+        }
     }
 
     fn sample_response() -> AppResponse {
@@ -198,12 +209,18 @@ mod tests {
     }
 
     fn app_with_requests(requests: Vec<ParsedRequest>) -> App {
-        App::new(PathBuf::from("requests.http"), parsed_file(requests, vec![]))
+        App::new(
+            PathBuf::from("requests.http"),
+            parsed_file(requests, vec![]),
+        )
     }
 
     #[test]
     fn test_select_next() {
-        let mut app = app_with_requests(vec![request("https://example.com/one"), request("https://example.com/two")]);
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+        ]);
 
         let command = app.update(Message::SelectNext);
 
@@ -213,7 +230,10 @@ mod tests {
 
     #[test]
     fn test_select_next_wraps() {
-        let mut app = app_with_requests(vec![request("https://example.com/one"), request("https://example.com/two")]);
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+        ]);
         app.selected_index = 1;
 
         app.update(Message::SelectNext);
@@ -223,7 +243,10 @@ mod tests {
 
     #[test]
     fn test_select_prev() {
-        let mut app = app_with_requests(vec![request("https://example.com/one"), request("https://example.com/two")]);
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+        ]);
         app.selected_index = 1;
 
         app.update(Message::SelectPrev);
@@ -233,7 +256,10 @@ mod tests {
 
     #[test]
     fn test_select_prev_wraps() {
-        let mut app = app_with_requests(vec![request("https://example.com/one"), request("https://example.com/two")]);
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+        ]);
 
         app.update(Message::SelectPrev);
 
@@ -298,7 +324,10 @@ mod tests {
         let command = app.update(Message::SendRequest);
 
         assert!(matches!(command, Command::None));
-        assert_eq!(app.status, AppStatus::Error("Undefined variable 'missing' in url".to_string()));
+        assert_eq!(
+            app.status,
+            AppStatus::Error("Undefined variable 'missing' in url".to_string())
+        );
     }
 
     #[test]
@@ -348,8 +377,11 @@ mod tests {
     #[test]
     fn test_reload_file_updates_requests_and_variables() {
         let file_path = temp_file_path("reload-success");
-        fs::write(&file_path, "@host = https://reloaded.example.com\n\nGET {{host}}/health")
-            .expect("should write temp request file");
+        fs::write(
+            &file_path,
+            "@host = https://reloaded.example.com\n\nGET {{host}}/health",
+        )
+        .expect("should write temp request file");
 
         let mut app = App::new(
             file_path.clone(),
@@ -374,12 +406,17 @@ mod tests {
             .expect("should write invalid temp request file");
 
         let original_request = request("https://original.example.com");
-        let mut app = App::new(file_path.clone(), parsed_file(vec![original_request.clone()], vec![]));
+        let mut app = App::new(
+            file_path.clone(),
+            parsed_file(vec![original_request.clone()], vec![]),
+        );
 
         app.update(Message::ReloadFile);
 
         assert_eq!(app.requests, vec![original_request]);
-        assert!(matches!(app.status, AppStatus::Error(message) if message.contains("Parse error at line 1")));
+        assert!(
+            matches!(app.status, AppStatus::Error(message) if message.contains("Parse error at line 1"))
+        );
 
         fs::remove_file(&file_path).expect("should remove temp request file");
     }

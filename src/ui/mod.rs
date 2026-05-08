@@ -2,9 +2,9 @@ pub mod request_list;
 pub mod response_pane;
 pub mod status_bar;
 
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 
 use crate::app::App;
 
@@ -41,7 +41,7 @@ mod tests {
     use super::view;
     use std::path::PathBuf;
 
-    use ratatui::{Terminal, backend::TestBackend};
+    use ratatui::{backend::TestBackend, Terminal};
 
     use crate::app::App;
     use crate::parser::{Method, ParsedFile, ParsedRequest};

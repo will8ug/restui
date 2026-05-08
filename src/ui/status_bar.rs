@@ -1,7 +1,7 @@
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 
 use crate::app::{App, AppStatus};
 
@@ -33,9 +33,17 @@ fn status_text(app: &App) -> String {
         AppStatus::Idle => app
             .response
             .as_ref()
-            .map(|response| format!("{}ms {}", response.duration.as_millis(), human_size(response.size_bytes)))
+            .map(|response| {
+                format!(
+                    "{}ms {}",
+                    response.duration.as_millis(),
+                    human_size(response.size_bytes)
+                )
+            })
             .unwrap_or_default(),
-        AppStatus::Sending(started_at) => format!("Sending... {}ms", started_at.elapsed().as_millis()),
+        AppStatus::Sending(started_at) => {
+            format!("Sending... {}ms", started_at.elapsed().as_millis())
+        }
         AppStatus::Error(message) => message.clone(),
     }
 }
@@ -60,8 +68,8 @@ mod tests {
     use super::*;
     use std::time::{Duration, Instant};
 
-    use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
 
     use crate::app::{App, Focus};
     use crate::http::AppResponse;
@@ -85,7 +93,9 @@ mod tests {
     fn render_app(app: &App) -> TestBackend {
         let backend = TestBackend::new(80, 1);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|frame| render(app, frame, frame.area())).unwrap();
+        terminal
+            .draw(|frame| render(app, frame, frame.area()))
+            .unwrap();
         terminal.backend().clone()
     }
 
