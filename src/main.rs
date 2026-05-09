@@ -164,6 +164,7 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
         KeyCode::Enter => Some(Message::SendRequest),
         KeyCode::Tab => Some(Message::ToggleFocus),
         KeyCode::Char('r') => Some(Message::ReloadFile),
+        KeyCode::Char('d') => Some(Message::ToggleRequestDetail),
         KeyCode::Char('?') => Some(Message::ToggleHelp),
         KeyCode::Char('q') => Some(Message::Quit),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Message::Quit),
