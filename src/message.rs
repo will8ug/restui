@@ -13,6 +13,7 @@ pub enum Message {
     ScrollDown,
     ReloadFile,
     ToggleHelp,
+    ToggleRequestDetail,
     Quit,
     Resize(u16, u16),
 }

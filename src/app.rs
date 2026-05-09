@@ -148,6 +148,7 @@ impl App {
                 self.show_help = !self.show_help;
                 Command::None
             }
+            Message::ToggleRequestDetail => Command::None,
             Message::Quit => Command::Quit,
             Message::Resize(width, height) => {
                 self.size = (width, height);
