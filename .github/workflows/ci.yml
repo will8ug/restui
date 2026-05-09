@@ -67,7 +67,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         continue-on-error: true
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          deploy_key: ${{ secrets.GH_PAGES_DEPLOY_KEY }}
           external_repository: will8ug/will8ug.github.io
           publish_dir: ./badges
           publish_branch: main
