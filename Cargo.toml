@@ -1,9 +1,9 @@
 [package]
 name = "restui"
 version = "0.1.0"
-edition = "2021"
+edition = "2026"
 authors = ["Will Yuan"]
-description = "A TUI REST client - terminal alternative to VS Code REST Client"
+description = "A TUI REST client"
 license = "MIT"
 
 [dependencies]

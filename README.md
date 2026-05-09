@@ -55,7 +55,3 @@ Content-Type: {{content_type}}
   "version": "0.1.0"
 }
 ```
-
-## License
-
-MIT

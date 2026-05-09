@@ -1,1 +1,61 @@
-/target
+## File system
+.DS_Store
+desktop.ini
+
+## Editor
+*.swp
+*.swo
+Session.vim
+.cproject
+.idea/
+*.iml
+.vscode/
+.project
+.favorites.json
+.settings/
+.vs/
+*.code-workspace
+.zed/
+.sisyphus/
+
+## Tool
+.cargo
+
+## Configuration
+config.toml
+config.mk
+config.stamp
+no_llvm_build
+
+## Build
+/dl/
+/doc/
+/inst/
+/llvm/
+/mingw-build/
+build/
+/target/
+!/compiler/rustc_mir_build/src/build/
+/build-rust-analyzer/
+dist/
+
+default_*.profraw
+
+## Temporary files
+*~
+\#*
+\#*\#
+.#*
+
+## Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+## Node
+node_modules/
+package-lock.json
+package.json
+
+## Rustdoc GUI tests
+tests/rustdoc-gui/src/**.lock
