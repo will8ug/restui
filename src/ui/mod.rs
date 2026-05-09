@@ -1,3 +1,4 @@
+pub mod help_overlay;
 pub mod request_list;
 pub mod response_pane;
 pub mod status_bar;
@@ -34,6 +35,10 @@ pub fn view(app: &App, frame: &mut Frame) {
     request_list::render(app, frame, content_areas[0]);
     response_pane::render(app, frame, content_areas[1]);
     status_bar::render(app, frame, areas[2]);
+
+    if app.show_help {
+        help_overlay::render(frame);
+    }
 }
 
 #[cfg(test)]
