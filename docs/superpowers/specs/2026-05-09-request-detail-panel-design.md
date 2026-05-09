@@ -174,7 +174,7 @@ When `app.show_help` is `true`, `d` is swallowed (no action), consistent with ex
 
 ## Status Bar (`src/ui/status_bar.rs`)
 
-Add `d detail` to the keybinding hints displayed in the status bar.
+Replace the `r reload` hint with `d detail` in the keybinding hints. The status bar displays at most 6 shortcuts. The new set is: `↑↓ navigate │ Enter send │ Tab focus │ d detail │ ? help │ q quit`.
 
 ## Focus Cycling Update
 
