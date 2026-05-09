@@ -29,11 +29,13 @@ restui <file.http> [--timeout <secs>] [--no-verify]
 
 | Key | Action |
 | --- | --- |
-| ↑ / k | Move selection up |
-| ↓ / j | Move selection down |
+| ↑ / k | Move selection up / Scroll up |
+| ↓ / j | Move selection down / Scroll down |
 | Enter | Send selected request |
 | Tab | Toggle focus between panes |
+| d | Toggle request detail |
 | r | Reload file from disk |
+| ? | Toggle help |
 | q / Ctrl+C | Quit |
 
 ## Example `.http` file
