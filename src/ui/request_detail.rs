@@ -53,8 +53,8 @@ fn format_request(request: &ParsedRequest) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
 
     use crate::app::{App, AppStatus, Focus};
     use crate::http::AppResponse;
@@ -92,7 +92,9 @@ mod tests {
     fn render_app(app: &App) -> TestBackend {
         let backend = TestBackend::new(60, 10);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|frame| render(app, frame, frame.area())).unwrap();
+        terminal
+            .draw(|frame| render(app, frame, frame.area()))
+            .unwrap();
         terminal.backend().clone()
     }
 
