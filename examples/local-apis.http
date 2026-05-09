@@ -1,14 +1,19 @@
+@baseUrl = http://localhost:10001
+
+### Mock 400 from Nginx
+GET {{baseUrl}}/nginx-400
+
 ### Mock 502 from Nginx
-GET http://localhost:10001/nginx-502
+GET {{baseUrl}}/nginx-502
 
 ### Mock 503 response with CRLF
-GET http://localhost:10001/nginx-503-crlf
+GET {{baseUrl}}/nginx-503-crlf
 
 ### Raw json response
-GET http://localhost:10001/raw-json-simple
+GET {{baseUrl}}/raw-json-simple
 
 ### Request with Large Body
-POST http://localhost:10001/non-exist-req
+POST {{baseUrl}}/non-exist-req
 
 {
   "name": "John Doe",
@@ -45,7 +50,4 @@ GET http://localhost:10001/ping
 GET http://localhost:10001/ping
 
 ### 009
-GET http://localhost:10001/ping
-
-### 010
 GET http://localhost:10001/ping
