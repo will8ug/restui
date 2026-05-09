@@ -13,7 +13,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -29,14 +29,46 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: Install tarpaulin
         run: cargo install cargo-tarpaulin
       - name: Run coverage
         run: cargo tarpaulin --fail-under 60 --out xml
-      - name: Upload coverage
+      - name: Upload coverage report
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: cobertura.xml
+      - name: Generate coverage badge
+        run: |
+          read COVERAGE COLOR <<< $(python3 -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('cobertura.xml')
+          root = tree.getroot()
+          line_rate = float(root.attrib.get('line-rate', 0))
+          pct = round(line_rate * 100, 1)
+          if pct >= 80:
+              color = 'brightgreen'
+          elif pct >= 60:
+              color = 'yellow'
+          elif pct >= 40:
+              color = 'orange'
+          else:
+              color = 'red'
+          print(pct, color)
+          ")
+          echo "Coverage: $COVERAGE% ($COLOR)"
+          mkdir -p badges
+          curl -s -o badges/coverage.svg \
+            "https://img.shields.io/badge/coverage-${COVERAGE}%25-${COLOR}"
+      - name: Upload coverage badges
+        if: ${{ hashFiles('./badges') != '' }}
+        uses: peaceiris/actions-gh-pages@v3
+        continue-on-error: true
+        with:
+          deploy_key: ${{ secrets.GH_PAGES_DEPLOY_KEY }}
+          external_repository: will8ug/will8ug.github.io
+          publish_dir: ./badges
+          publish_branch: main
+          destination_dir: restui/badges
