@@ -112,6 +112,27 @@ mod tests {
 
         assert!(text.contains("Enter send"));
         assert!(text.contains("Tab focus"));
+        assert!(text.contains("? help"));
         assert!(text.contains("q quit"));
+    }
+
+    #[test]
+    fn test_help_overlay_renders_when_visible() {
+        let mut app = app();
+        app.show_help = true;
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Help (? or Esc to close)"));
+        assert!(text.contains("Navigation"));
+    }
+
+    #[test]
+    fn test_help_overlay_hidden_by_default() {
+        let app = app();
+
+        let text = render_text(&app);
+
+        assert!(!text.contains("Help (? or Esc to close)"));
     }
 }
