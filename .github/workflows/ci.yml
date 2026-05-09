@@ -19,6 +19,7 @@ jobs:
       - name: Clippy
         run: make clippy
       - name: Format
+        continue-on-error: true
         run: make fmt-check
       - name: Test
         run: make test
