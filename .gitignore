@@ -18,10 +18,8 @@ Session.vim
 .zed/
 .sisyphus/
 
-## Tool
-.cargo
-
 ## Configuration
+.cargo
 config.toml
 config.mk
 config.stamp
@@ -40,6 +38,7 @@ build/
 dist/
 
 default_*.profraw
+badges/
 
 ## Temporary files
 *~
