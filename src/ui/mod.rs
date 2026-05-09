@@ -34,7 +34,18 @@ pub fn view(app: &App, frame: &mut Frame) {
 
     frame.render_widget(Paragraph::new(format!("restui - {filename}")), areas[0]);
     request_list::render(app, frame, content_areas[0]);
-    response_pane::render(app, frame, content_areas[1]);
+
+    if app.show_request_detail {
+        let right_areas = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+            .split(content_areas[1]);
+
+        request_detail::render(app, frame, right_areas[0]);
+        response_pane::render(app, frame, right_areas[1]);
+    } else {
+        response_pane::render(app, frame, content_areas[1]);
+    }
     status_bar::render(app, frame, areas[2]);
 
     if app.show_help {
@@ -104,6 +115,27 @@ mod tests {
     fn test_layout_has_response_pane() {
         let text = render_text(&app());
 
+        assert!(text.contains("Response"));
+    }
+
+    #[test]
+    fn test_layout_splits_when_detail_panel_open() {
+        let mut app = app();
+        app.show_request_detail = true;
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Request Detail"));
+        assert!(text.contains("Response"));
+    }
+
+    #[test]
+    fn test_layout_no_detail_panel_when_closed() {
+        let app = app();
+
+        let text = render_text(&app);
+
+        assert!(!text.contains("Request Detail"));
         assert!(text.contains("Response"));
     }
 
