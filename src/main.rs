@@ -87,7 +87,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         let mut pending_messages = Vec::new();
 
         if event::poll(Duration::from_millis(50))?
-            && let Some(message) = event_message(event::read()?, app.focus)
+            && let Some(message) = event_message(event::read()?, app.focus, app.show_help)
         {
             pending_messages.push(message);
         }
@@ -130,17 +130,24 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn event_message(event: Event, focus: Focus) -> Option<Message> {
+fn event_message(event: Event, focus: Focus, show_help: bool) -> Option<Message> {
     match event {
-        Event::Key(key) => key_message(key, focus),
+        Event::Key(key) => key_message(key, focus, show_help),
         Event::Resize(width, height) => Some(Message::Resize(width, height)),
         _ => None,
     }
 }
 
-fn key_message(key: KeyEvent, focus: Focus) -> Option<Message> {
+fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> {
     if key.kind != KeyEventKind::Press {
         return None;
+    }
+
+    if show_help {
+        return match key.code {
+            KeyCode::Char('?') | KeyCode::Esc => Some(Message::ToggleHelp),
+            _ => None,
+        };
     }
 
     match key.code {
@@ -155,6 +162,7 @@ fn key_message(key: KeyEvent, focus: Focus) -> Option<Message> {
         KeyCode::Enter => Some(Message::SendRequest),
         KeyCode::Tab => Some(Message::ToggleFocus),
         KeyCode::Char('r') => Some(Message::ReloadFile),
+        KeyCode::Char('?') => Some(Message::ToggleHelp),
         KeyCode::Char('q') => Some(Message::Quit),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Message::Quit),
         _ => None,
