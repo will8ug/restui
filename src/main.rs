@@ -12,10 +12,10 @@ use crossterm::event::{
 };
 use crossterm::execute;
 use crossterm::terminal::{
-    self, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    self, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 use restui::app::{App, Focus};
 use restui::message::{Command, Message};
 use restui::{http, parser, ui};
@@ -86,10 +86,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     loop {
         let mut pending_messages = Vec::new();
 
-        if event::poll(Duration::from_millis(50))? {
-            if let Some(message) = event_message(event::read()?, app.focus) {
-                pending_messages.push(message);
-            }
+        if event::poll(Duration::from_millis(50))?
+            && let Some(message) = event_message(event::read()?, app.focus)
+        {
+            pending_messages.push(message);
         }
 
         while let Ok(message) = rx.try_recv() {

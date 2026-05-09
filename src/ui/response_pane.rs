@@ -1,7 +1,7 @@
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
 use serde_json::Value;
 
 use crate::app::{App, Focus};
@@ -68,8 +68,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
 
     use crate::app::{App, AppStatus};
     use crate::parser::ParsedRequest;

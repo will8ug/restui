@@ -1,7 +1,7 @@
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
-use ratatui::Frame;
 
 use crate::app::{App, Focus};
 use crate::parser::ParsedRequest;
@@ -74,8 +74,8 @@ fn http_url_path(url: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
 
     use crate::app::{App, AppStatus};
     use crate::http::AppResponse;

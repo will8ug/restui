@@ -35,7 +35,8 @@ async fn test_full_flow_parse_resolve_send() {
 
     let input = format!(
         "@host = {}\n@content_type = application/json\n\n### Create user\nPOST {{{{host}}}}/users\nContent-Type: {{{{content_type}}}}\n\n{}",
-        server.uri(), body
+        server.uri(),
+        body
     );
 
     let parsed = parser::parse(&input).expect("request file should parse");

@@ -138,12 +138,10 @@ fn parse_request(
             continue;
         }
 
-        if !headers_started {
-            if let Some(query_fragment) = parse_query_line(line) {
-                url.push_str(&query_fragment);
-                index += 1;
-                continue;
-            }
+        if !headers_started && let Some(query_fragment) = parse_query_line(line) {
+            url.push_str(&query_fragment);
+            index += 1;
+            continue;
         }
 
         headers_started = true;
@@ -181,13 +179,13 @@ fn parse_request_line(line: &str, line_number: usize) -> Result<(Method, String)
     if first.starts_with("http://") || first.starts_with("https://") {
         let url = first.to_string();
 
-        if let Some(version) = parts.next() {
-            if !version.starts_with("HTTP/") || parts.next().is_some() {
-                return Err(ParseError {
-                    message: "Invalid request line".to_string(),
-                    line: line_number,
-                });
-            }
+        if let Some(version) = parts.next()
+            && (!version.starts_with("HTTP/") || parts.next().is_some())
+        {
+            return Err(ParseError {
+                message: "Invalid request line".to_string(),
+                line: line_number,
+            });
         }
 
         return Ok((Method::Get, url));
@@ -202,13 +200,13 @@ fn parse_request_line(line: &str, line_number: usize) -> Result<(Method, String)
         line: line_number,
     })?;
 
-    if let Some(version) = parts.next() {
-        if !version.starts_with("HTTP/") || parts.next().is_some() {
-            return Err(ParseError {
-                message: "Invalid request line".to_string(),
-                line: line_number,
-            });
-        }
+    if let Some(version) = parts.next()
+        && (!version.starts_with("HTTP/") || parts.next().is_some())
+    {
+        return Err(ParseError {
+            message: "Invalid request line".to_string(),
+            line: line_number,
+        });
     }
 
     Ok((method, url.to_string()))

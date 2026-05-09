@@ -1,7 +1,7 @@
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Paragraph;
-use ratatui::Frame;
 
 use crate::app::{App, AppStatus};
 
@@ -68,8 +68,8 @@ mod tests {
     use super::*;
     use std::time::{Duration, Instant};
 
-    use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
 
     use crate::app::{App, Focus};
     use crate::http::AppResponse;

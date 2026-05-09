@@ -148,10 +148,12 @@ mod tests {
         assert_eq!(response.status_text, "OK");
         assert_eq!(response.body, "hello world");
         assert_eq!(response.content_type.as_deref(), Some("text/plain"));
-        assert!(response
-            .headers
-            .iter()
-            .any(|(name, value)| name == "x-test" && value == "ok"));
+        assert!(
+            response
+                .headers
+                .iter()
+                .any(|(name, value)| name == "x-test" && value == "ok")
+        );
     }
 
     #[tokio::test]
@@ -276,14 +278,18 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(response
-            .headers
-            .iter()
-            .any(|(name, value)| name == "x-response-id" && value == "abc123"));
-        assert!(response
-            .headers
-            .iter()
-            .any(|(name, value)| name == "cache-control" && value == "no-cache"));
+        assert!(
+            response
+                .headers
+                .iter()
+                .any(|(name, value)| name == "x-response-id" && value == "abc123")
+        );
+        assert!(
+            response
+                .headers
+                .iter()
+                .any(|(name, value)| name == "cache-control" && value == "no-cache")
+        );
     }
 
     #[tokio::test]
