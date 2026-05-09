@@ -17,6 +17,7 @@ pub enum AppStatus {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Focus {
     RequestList,
+    RequestDetail,
     ResponsePane,
 }
 
@@ -32,6 +33,8 @@ pub struct App {
     pub size: (u16, u16),
     pub last_sent_index: Option<usize>,
     pub show_help: bool,
+    pub show_request_detail: bool,
+    pub detail_scroll_offset: usize,
 }
 
 impl App {
@@ -48,6 +51,8 @@ impl App {
             size: (0, 0),
             last_sent_index: None,
             show_help: false,
+            show_request_detail: false,
+            detail_scroll_offset: 0,
         }
     }
 
@@ -85,6 +90,7 @@ impl App {
                 if self.focus == Focus::RequestList && !self.requests.is_empty() =>
             {
                 self.selected_index = (self.selected_index + 1) % self.requests.len();
+                self.detail_scroll_offset = 0;
                 Command::None
             }
             Message::SelectPrev
@@ -95,6 +101,15 @@ impl App {
                 } else {
                     self.selected_index - 1
                 };
+                self.detail_scroll_offset = 0;
+                Command::None
+            }
+            Message::ScrollUp if self.focus == Focus::RequestDetail => {
+                self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);
+                Command::None
+            }
+            Message::ScrollDown if self.focus == Focus::RequestDetail => {
+                self.detail_scroll_offset = self.detail_scroll_offset.saturating_add(1);
                 Command::None
             }
             Message::ScrollUp if self.focus == Focus::ResponsePane => {
@@ -134,9 +149,18 @@ impl App {
                 Command::None
             }
             Message::ToggleFocus => {
-                self.focus = match self.focus {
-                    Focus::RequestList => Focus::ResponsePane,
-                    Focus::ResponsePane => Focus::RequestList,
+                self.focus = if self.show_request_detail {
+                    match self.focus {
+                        Focus::RequestList => Focus::RequestDetail,
+                        Focus::RequestDetail => Focus::ResponsePane,
+                        Focus::ResponsePane => Focus::RequestList,
+                    }
+                } else {
+                    match self.focus {
+                        Focus::RequestList => Focus::ResponsePane,
+                        Focus::ResponsePane => Focus::RequestList,
+                        Focus::RequestDetail => Focus::RequestList,
+                    }
                 };
                 Command::None
             }
@@ -148,7 +172,13 @@ impl App {
                 self.show_help = !self.show_help;
                 Command::None
             }
-            Message::ToggleRequestDetail => Command::None,
+            Message::ToggleRequestDetail => {
+                self.show_request_detail = !self.show_request_detail;
+                if !self.show_request_detail && self.focus == Focus::RequestDetail {
+                    self.focus = Focus::RequestList;
+                }
+                Command::None
+            }
             Message::Quit => Command::Quit,
             Message::Resize(width, height) => {
                 self.size = (width, height);
@@ -370,6 +400,100 @@ mod tests {
 
         app.update(Message::ToggleFocus);
         assert_eq!(app.focus, Focus::RequestList);
+    }
+
+    #[test]
+    fn test_toggle_request_detail_on() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        let command = app.update(Message::ToggleRequestDetail);
+
+        assert!(app.show_request_detail);
+        assert!(matches!(command, Command::None));
+    }
+
+    #[test]
+    fn test_toggle_request_detail_off() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+
+        app.update(Message::ToggleRequestDetail);
+
+        assert!(!app.show_request_detail);
+    }
+
+    #[test]
+    fn test_toggle_request_detail_off_resets_focus() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+
+        app.update(Message::ToggleRequestDetail);
+
+        assert_eq!(app.focus, Focus::RequestList);
+    }
+
+    #[test]
+    fn test_focus_cycles_three_panes_when_detail_open() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+
+        app.update(Message::ToggleFocus);
+        assert_eq!(app.focus, Focus::RequestDetail);
+
+        app.update(Message::ToggleFocus);
+        assert_eq!(app.focus, Focus::ResponsePane);
+
+        app.update(Message::ToggleFocus);
+        assert_eq!(app.focus, Focus::RequestList);
+    }
+
+    #[test]
+    fn test_focus_cycles_two_panes_when_detail_closed() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        app.update(Message::ToggleFocus);
+        assert_eq!(app.focus, Focus::ResponsePane);
+
+        app.update(Message::ToggleFocus);
+        assert_eq!(app.focus, Focus::RequestList);
+    }
+
+    #[test]
+    fn test_detail_scroll_up() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.detail_scroll_offset = 3;
+
+        app.update(Message::ScrollUp);
+
+        assert_eq!(app.detail_scroll_offset, 2);
+    }
+
+    #[test]
+    fn test_detail_scroll_down() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+
+        app.update(Message::ScrollDown);
+
+        assert_eq!(app.detail_scroll_offset, 1);
+    }
+
+    #[test]
+    fn test_detail_scroll_reset_on_selection_change() {
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+        ]);
+        app.show_request_detail = true;
+        app.detail_scroll_offset = 5;
+
+        app.update(Message::SelectNext);
+
+        assert_eq!(app.detail_scroll_offset, 0);
     }
 
     #[test]

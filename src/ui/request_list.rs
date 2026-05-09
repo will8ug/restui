@@ -105,6 +105,8 @@ mod tests {
             size: (0, 0),
             last_sent_index: None,
             show_help: false,
+            show_request_detail: false,
+            detail_scroll_offset: 0,
         }
     }
 

@@ -153,10 +153,12 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => Some(match focus {
             Focus::RequestList => Message::SelectPrev,
+            Focus::RequestDetail => Message::ScrollUp,
             Focus::ResponsePane => Message::ScrollUp,
         }),
         KeyCode::Down | KeyCode::Char('j') => Some(match focus {
             Focus::RequestList => Message::SelectNext,
+            Focus::RequestDetail => Message::ScrollDown,
             Focus::ResponsePane => Message::ScrollDown,
         }),
         KeyCode::Enter => Some(Message::SendRequest),
