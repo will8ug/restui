@@ -143,10 +143,10 @@ mod tests {
     fn test_layout_has_status_bar() {
         let text = render_text(&app());
 
-        assert!(text.contains("Enter send"));
-        assert!(text.contains("Tab focus"));
-        assert!(text.contains("? help"));
-        assert!(text.contains("q quit"));
+        assert!(text.contains("[Enter] Send"));
+        assert!(text.contains("[Tab] Focus"));
+        assert!(text.contains("[?] Help"));
+        assert!(text.contains("[q] Quit"));
     }
 
     #[test]
