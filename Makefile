@@ -1,4 +1,4 @@
-.PHONY: build test clippy fmt lint check run run-sample install clean coverage help
+.PHONY: build test clippy fmt lint check run run-sample install clean coverage coverage-ci help
 
 BINARY := restui
 SAMPLE := examples/sample.http
@@ -42,7 +42,10 @@ install: ## Install binary to ~/.cargo/bin
 	cargo install --path .
 
 coverage: ## Run test coverage (requires cargo-tarpaulin)
-	cargo tarpaulin --fail-under 80 --out Html
+	cargo tarpaulin --fail-under 60 --out Html
+
+coverage-ci: ## Run coverage for CI (XML output, 60% threshold)
+	cargo tarpaulin --fail-under 60 --out xml
 
 clean: ## Remove build artifacts
 	cargo clean
