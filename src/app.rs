@@ -31,6 +31,7 @@ pub struct App {
     pub scroll_offset: usize,
     pub size: (u16, u16),
     pub last_sent_index: Option<usize>,
+    pub show_help: bool,
 }
 
 impl App {
@@ -46,6 +47,7 @@ impl App {
             scroll_offset: 0,
             size: (0, 0),
             last_sent_index: None,
+            show_help: false,
         }
     }
 
@@ -140,6 +142,10 @@ impl App {
             }
             Message::ReloadFile => {
                 self.reload();
+                Command::None
+            }
+            Message::ToggleHelp => {
+                self.show_help = !self.show_help;
                 Command::None
             }
             Message::Quit => Command::Quit,
@@ -428,5 +434,33 @@ mod tests {
         app.update(Message::Resize(120, 40));
 
         assert_eq!(app.size, (120, 40));
+    }
+
+    #[test]
+    fn test_toggle_help_on() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        app.update(Message::ToggleHelp);
+
+        assert!(app.show_help);
+    }
+
+    #[test]
+    fn test_toggle_help_off() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_help = true;
+
+        app.update(Message::ToggleHelp);
+
+        assert!(!app.show_help);
+    }
+
+    #[test]
+    fn test_toggle_help_returns_none() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        let command = app.update(Message::ToggleHelp);
+
+        assert!(matches!(command, Command::None));
     }
 }
