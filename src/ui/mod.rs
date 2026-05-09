@@ -1,4 +1,5 @@
 pub mod help_overlay;
+pub mod request_detail;
 pub mod request_list;
 pub mod response_pane;
 pub mod status_bar;
