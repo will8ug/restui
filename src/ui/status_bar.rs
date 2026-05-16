@@ -5,7 +5,8 @@ use ratatui::widgets::Paragraph;
 
 use crate::app::{App, AppStatus};
 
-const KEY_HINTS: &str = "[↑↓] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit";
+const KEY_HINTS: &str =
+    "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit";
 
 pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     let right_text = status_text(app);
@@ -134,11 +135,9 @@ mod tests {
         let backend = render_app(&app());
         let text = buffer_text(&backend);
 
-        assert!(
-            text.contains(
-                "[↑↓] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit"
-            )
-        );
+        assert!(text.contains(
+            "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit"
+        ));
     }
 
     #[test]
