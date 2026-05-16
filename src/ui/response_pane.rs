@@ -22,7 +22,10 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     let widget = match &app.response {
         Some(response) => Paragraph::new(format_response(response))
             .block(block)
-            .scroll((app.scroll_offset as u16, 0)),
+            .scroll((
+                app.scroll_offset as u16,
+                app.scroll_offset_x as u16,
+            )),
         None => Paragraph::new("No response yet. Select a request and press Enter.")
             .block(block)
             .alignment(Alignment::Center),
@@ -152,6 +155,19 @@ mod tests {
         assert!(text.contains("HTTP 200 OK"));
         assert!(text.contains("content-type: text/plain"));
         assert!(text.contains("hello"));
+    }
+
+    #[test]
+    fn test_renders_with_horizontal_offset() {
+        let mut app = app_with_response(Some(sample_response("hello-world", Some("text/plain"))));
+        app.scroll_offset_x = 4;
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        // The "HTTP 200 OK" status line is clipped by 4 chars; "200 OK" survives, "HTTP" does not.
+        assert!(!text.contains("HTTP 200 OK"));
+        assert!(text.contains("200 OK"));
     }
 
     #[test]
