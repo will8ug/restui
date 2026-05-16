@@ -6,6 +6,8 @@ const HELP_TEXT: &str = "\
  Navigation
    ↑ / k     Move up / Scroll up
    ↓ / j     Move down / Scroll down
+   ← / h     Scroll left
+   → / l     Scroll right
    Tab       Toggle focus between panes
 
  Actions
@@ -65,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_help_overlay_renders_shortcuts() {
-        let backend = TestBackend::new(80, 24);
+        let backend = TestBackend::new(80, 40);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|frame| render(frame)).unwrap();
         let buffer = terminal.backend().buffer();
@@ -81,6 +83,8 @@ mod tests {
         assert!(text.contains("Navigation"));
         assert!(text.contains("Enter"));
         assert!(text.contains("Quit"));
+        assert!(text.contains("Scroll left"));
+        assert!(text.contains("Scroll right"));
     }
 
     #[test]
