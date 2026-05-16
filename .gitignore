@@ -18,6 +18,7 @@ Session.vim
 .zed/
 .sisyphus/
 .superpowers/
+.worktrees/
 
 ## Configuration
 .cargo
