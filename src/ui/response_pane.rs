@@ -22,10 +22,7 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     let widget = match &app.response {
         Some(response) => Paragraph::new(format_response(response))
             .block(block)
-            .scroll((
-                app.scroll_offset as u16,
-                app.scroll_offset_x as u16,
-            )),
+            .scroll((app.scroll_offset as u16, app.scroll_offset_x as u16)),
         None => Paragraph::new("No response yet. Select a request and press Enter.")
             .block(block)
             .alignment(Alignment::Center),
