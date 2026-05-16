@@ -11,6 +11,8 @@ pub enum Message {
     ToggleFocus,
     ScrollUp,
     ScrollDown,
+    ScrollLeft,
+    ScrollRight,
     ReloadFile,
     ToggleHelp,
     ToggleRequestDetail,
