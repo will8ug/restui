@@ -107,6 +107,9 @@ mod tests {
             show_help: false,
             show_request_detail: false,
             detail_scroll_offset: 0,
+            list_scroll_offset_x: 0,
+            detail_scroll_offset_x: 0,
+            scroll_offset_x: 0,
         }
     }
 
