@@ -26,7 +26,10 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
         let request = &app.requests[app.selected_index];
         Paragraph::new(format_request(request))
             .block(block)
-            .scroll((app.detail_scroll_offset as u16, 0))
+            .scroll((
+                app.detail_scroll_offset as u16,
+                app.detail_scroll_offset_x as u16,
+            ))
     };
 
     frame.render_widget(widget, area);
@@ -86,6 +89,9 @@ mod tests {
             show_help: false,
             show_request_detail: true,
             detail_scroll_offset: 0,
+            list_scroll_offset_x: 0,
+            detail_scroll_offset_x: 0,
+            scroll_offset_x: 0,
         }
     }
 
@@ -187,6 +193,23 @@ mod tests {
         let cell = &backend.buffer()[(0, 0)];
 
         assert_eq!(cell.fg, ratatui::style::Color::DarkGray);
+    }
+
+    #[test]
+    fn test_renders_with_horizontal_offset() {
+        let mut app = app_with_requests(vec![request(
+            Some("Get users"),
+            Method::Get,
+            "https://example.com/users",
+        )]);
+        app.detail_scroll_offset_x = 5;
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        // With offset 5, the leading "GET h" is clipped; the panel shows from "ttps://..." onward.
+        assert!(!text.contains("GET https://example.com/users"));
+        assert!(text.contains("ttps://example.com/users"));
     }
 
     #[test]

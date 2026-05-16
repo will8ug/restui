@@ -6,6 +6,8 @@ const HELP_TEXT: &str = "\
  Navigation
    ↑ / k     Move up / Scroll up
    ↓ / j     Move down / Scroll down
+   ← / h     Scroll left
+   → / l     Scroll right
    Tab       Toggle focus between panes
 
  Actions
@@ -33,7 +35,7 @@ pub fn render(frame: &mut Frame) {
 
 fn centered_rect(area: Rect) -> Rect {
     let width = (area.width * 60 / 100).max(40).min(area.width);
-    let height = (area.height * 70 / 100).max(12).min(area.height);
+    let height = (area.height * 70 / 100).max(18).min(area.height);
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect::new(x, y, width, height)
@@ -81,6 +83,8 @@ mod tests {
         assert!(text.contains("Navigation"));
         assert!(text.contains("Enter"));
         assert!(text.contains("Quit"));
+        assert!(text.contains("Scroll left"));
+        assert!(text.contains("Scroll right"));
     }
 
     #[test]
@@ -90,7 +94,7 @@ mod tests {
 
         // Width clamped to area.width (30) since min(40) > area width
         assert_eq!(rect.width, 30);
-        // Height clamped to area.height (8) since min(12) > area height
+        // Height clamped to area.height (8) since min(18) > area height
         assert_eq!(rect.height, 8);
     }
 

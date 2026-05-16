@@ -29,7 +29,9 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
                 " "
             };
             let label = request_label(request);
-            ListItem::new(format!("{selected_prefix}{sent_prefix} {label}"))
+            let full = format!("{selected_prefix}{sent_prefix} {label}");
+            let visible = horizontal_slice(&full, app.list_scroll_offset_x);
+            ListItem::new(visible)
         })
         .collect::<Vec<_>>();
 
@@ -71,6 +73,10 @@ fn http_url_path(url: &str) -> Option<&str> {
     Some(&url[path_start..])
 }
 
+fn horizontal_slice(line: &str, offset: usize) -> String {
+    line.chars().skip(offset).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +113,9 @@ mod tests {
             show_help: false,
             show_request_detail: false,
             detail_scroll_offset: 0,
+            list_scroll_offset_x: 0,
+            detail_scroll_offset_x: 0,
+            scroll_offset_x: 0,
         }
     }
 
@@ -193,5 +202,38 @@ mod tests {
         let request = request(None, Method::Get, "https://example.com/users");
 
         assert_eq!(request_label(&request), "GET /users");
+    }
+
+    #[test]
+    fn test_horizontal_slice_basic() {
+        assert_eq!(horizontal_slice(">  List users", 3), "List users");
+    }
+
+    #[test]
+    fn test_horizontal_slice_past_end() {
+        assert_eq!(horizontal_slice("short", 100), "");
+    }
+
+    #[test]
+    fn test_horizontal_slice_zero_offset() {
+        assert_eq!(horizontal_slice(">  List users", 0), ">  List users");
+    }
+
+    #[test]
+    fn test_renders_list_with_horizontal_offset() {
+        let mut app = app_with_requests(vec![request(
+            Some("List users"),
+            Method::Get,
+            "https://example.com/users",
+        )]);
+        app.list_scroll_offset_x = 4;
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        // Full composed line is ">  List users". With offset 4, the leading ">  L" is clipped, leaving "ist users".
+        assert!(!text.contains(">  List users"));
+        assert!(!text.contains("List users"));
+        assert!(text.contains("ist users"));
     }
 }
