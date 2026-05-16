@@ -161,6 +161,8 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
             Focus::RequestDetail => Message::ScrollDown,
             Focus::ResponsePane => Message::ScrollDown,
         }),
+        KeyCode::Left | KeyCode::Char('h') => Some(Message::ScrollLeft),
+        KeyCode::Right | KeyCode::Char('l') => Some(Message::ScrollRight),
         KeyCode::Enter => Some(Message::SendRequest),
         KeyCode::Tab => Some(Message::ToggleFocus),
         KeyCode::Char('r') => Some(Message::ReloadFile),
