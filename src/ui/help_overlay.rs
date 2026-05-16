@@ -35,7 +35,7 @@ pub fn render(frame: &mut Frame) {
 
 fn centered_rect(area: Rect) -> Rect {
     let width = (area.width * 60 / 100).max(40).min(area.width);
-    let height = (area.height * 70 / 100).max(12).min(area.height);
+    let height = (area.height * 70 / 100).max(18).min(area.height);
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect::new(x, y, width, height)
@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_help_overlay_renders_shortcuts() {
-        let backend = TestBackend::new(80, 40);
+        let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|frame| render(frame)).unwrap();
         let buffer = terminal.backend().buffer();
@@ -94,7 +94,7 @@ mod tests {
 
         // Width clamped to area.width (30) since min(40) > area width
         assert_eq!(rect.width, 30);
-        // Height clamped to area.height (8) since min(12) > area height
+        // Height clamped to area.height (8) since min(18) > area height
         assert_eq!(rect.height, 8);
     }
 
