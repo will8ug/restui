@@ -683,10 +683,10 @@ fn test_renders_list_with_horizontal_offset() {
     let backend = render_app(&app);
     let text = buffer_text(&backend);
 
-    // Full composed line is ">  List users". With offset 4, "List" is gone too: leaves "st users".
+    // Full composed line is ">  List users". With offset 4, the leading ">  L" is clipped, leaving "ist users".
     assert!(!text.contains(">  List users"));
     assert!(!text.contains("List users"));
-    assert!(text.contains("st users"));
+    assert!(text.contains("ist users"));
 }
 ```
 
