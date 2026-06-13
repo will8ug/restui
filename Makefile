@@ -2,7 +2,6 @@
 
 BINARY := restui
 SAMPLE := examples/sample.http
-SAMPLE_LOCAL := examples/local-apis.http
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -34,13 +33,10 @@ check: ## Quick compile check
 	cargo check
 
 run: ## Run with local-apis.http
-	cargo run -- $(SAMPLE_LOCAL)
+	cargo run -- $(SAMPLE)
 
 run-file: ## Run the binary (requires FILE=...)
 	cargo run -- $(FILE)
-
-run-sample: ## Run with the sample .http file
-	cargo run -- $(SAMPLE)
 
 install: ## Install binary to ~/.cargo/bin
 	cargo install --path .
