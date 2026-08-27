@@ -56,7 +56,7 @@ npm-test: ## Run npm packaging script tests
 npm-stage: ## Build host binary and stage host-only npm packages in target/npm
 	node npm/scripts/test-local.mjs --stage-only
 
-npm-pack: ## Stage and pack host-only npm tarballs (dry inspection)
+npm-pack: ## Stage and pack host-only npm tarballs, verify contents
 	node npm/scripts/test-local.mjs --pack-only
 
 npm-test-local: ## Full local e2e: build, stage, pack, install, run --help via shim

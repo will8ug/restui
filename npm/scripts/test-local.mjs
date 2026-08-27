@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Local pre-publish verification: build the host binary, stage host-only npm
-// packages, pack real tarballs, install into a throwaway project, and run the
-// installed `restui --help` through the bin shim. Never touches the registry.
+// packages, pack real tarballs and verify their contents, install into a
+// throwaway project, and run the installed `restui --help` through the bin
+// shim. Never touches the registry.
 //
 // Usage: node npm/scripts/test-local.mjs [--stage-only|--pack-only] [--skip-build]
 
@@ -14,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const STAGE = path.join(REPO, 'npm/scripts/stage.mjs');
+const USAGE = 'Usage: node npm/scripts/test-local.mjs [--stage-only|--pack-only] [--skip-build]';
 
 const HOST = {
   'darwin-arm64': 'restui-darwin-arm64',
@@ -26,23 +28,56 @@ if (!HOST) {
   exit(1);
 }
 
-const mode = process.argv.includes('--stage-only')
-  ? 'stage'
-  : process.argv.includes('--pack-only')
-    ? 'pack'
-    : 'full';
+function parseArgs(argv) {
+  const flags = { stageOnly: false, packOnly: false, skipBuild: false };
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === '--stage-only') flags.stageOnly = true;
+    else if (argv[i] === '--pack-only') flags.packOnly = true;
+    else if (argv[i] === '--skip-build') flags.skipBuild = true;
+    else {
+      console.error(`test-local: unknown argument ${argv[i]}\n${USAGE}`);
+      exit(2);
+    }
+  }
+  if (flags.stageOnly && flags.packOnly) {
+    console.error(`test-local: --stage-only and --pack-only are mutually exclusive\n${USAGE}`);
+    exit(2);
+  }
+  return {
+    mode: flags.stageOnly ? 'stage' : flags.packOnly ? 'pack' : 'full',
+    skipBuild: flags.skipBuild,
+  };
+}
+
+class CommandError extends Error {
+  constructor(cmd, args, cwd, status) {
+    super(`command failed (exit ${status ?? '?'}): ${cmd} ${args.join(' ')} in ${cwd ?? process.cwd()}`);
+    this.name = 'CommandError';
+    this.status = status;
+  }
+}
 
 function run(cmd, args, opts = {}) {
-  const res = spawnSync(cmd, args, { stdio: opts.stdio ?? 'inherit', cwd: opts.cwd, encoding: 'utf8' });
-  if (res.status !== 0) {
-    console.error(`test-local: command failed: ${cmd} ${args.join(' ')}`);
-    exit(res.status ?? 1);
-  }
+  // stdio defaults to 'inherit' so users see cargo/npm output; callers that
+  // need captured output pass { stdio: 'pipe', encoding: 'utf8' }.
+  const res = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
+  if (res.status !== 0) throw new CommandError(cmd, args, opts.cwd, res.status);
   return res;
 }
 
+function verifyTarballContents(tarball, entryPattern) {
+  const listing = run('tar', ['-tzf', tarball], { stdio: 'pipe', encoding: 'utf8' }).stdout ?? '';
+  const entries = listing.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (!entries.some((entry) => entryPattern.test(entry))) {
+    throw new Error(
+      `${path.basename(tarball)} lists no entry matching ${entryPattern}; actual contents:\n${entries.join('\n')}`
+    );
+  }
+}
+
 async function main() {
-  if (!process.argv.includes('--skip-build')) {
+  const { mode, skipBuild } = parseArgs(process.argv);
+  if (!skipBuild) {
     run('cargo', ['build', '--release'], { cwd: REPO });
   }
 
@@ -60,6 +95,9 @@ async function main() {
 
     const outDir = path.join(REPO, 'target/npm');
     run(process.execPath, [STAGE, '--only-host', '--binaries-dir', binariesDir, '--out', outDir]);
+    const version = JSON.parse(
+      await readFile(path.join(outDir, 'restui/package.json'), 'utf8')
+    ).version;
     if (mode === 'stage') {
       console.log(`\nstaged to ${outDir} (host-only)`);
       return;
@@ -67,17 +105,21 @@ async function main() {
 
     const tarballs = path.join(tmp, 'tarballs');
     await mkdir(tarballs, { recursive: true });
+    const packed = ['restui', HOST].map((pkg) => path.join(tarballs, `${pkg}-${version}.tgz`));
     for (const pkg of ['restui', HOST]) {
       run('npm', ['pack', '--pack-destination', tarballs], { cwd: path.join(outDir, pkg) });
     }
     if (mode === 'pack') {
-      console.log(`\ntarballs in ${tarballs}`);
+      // Self-inspect instead of leaving the tarballs around: `finally` below
+      // deletes the tmp dir, so any advertised path would be dead on arrival.
+      verifyTarballContents(packed[0], /^package\/bin\/restui\.js$/);
+      verifyTarballContents(packed[1], /^package\/bin\/restui$/);
+      console.log(
+        `\npacked and verified contents: ${packed.map((p) => path.basename(p)).join(', ')} (host-only)`
+      );
       return;
     }
 
-    const version = JSON.parse(
-      await readFile(path.join(outDir, 'restui/package.json'), 'utf8')
-    ).version;
     const project = path.join(tmp, 'project');
     await mkdir(project, { recursive: true });
     await writeFile(
@@ -87,8 +129,8 @@ async function main() {
           name: 'restui-smoke',
           private: true,
           dependencies: {
-            restui: `file:${path.join(tarballs, `restui-${version}.tgz`)}`,
-            [HOST]: `file:${path.join(tarballs, `${HOST}-${version}.tgz`)}`,
+            restui: `file:${packed[0]}`,
+            [HOST]: `file:${packed[1]}`,
           },
         },
         null,
@@ -99,10 +141,12 @@ async function main() {
 
     const help = spawnSync(path.join(project, 'node_modules/.bin/restui'), ['--help'], {
       encoding: 'utf8',
+      timeout: 30_000,
     });
+    // keep in sync with about = "TUI REST Client" in src/main.rs
     if (help.status !== 0 || !/TUI REST Client/.test(help.stdout)) {
       console.error(`test-local: --help through shim failed (exit ${help.status})\n${help.stdout}\n${help.stderr}`);
-      exit(1);
+      throw new Error('installed restui --help did not produce the expected output');
     }
     console.log(`\nPASS: installed restui@${version} runs --help through the shim (${HOST} tarball)`);
   } finally {
@@ -111,6 +155,11 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`test-local: ${err.stack ?? String(err)}`);
-  exit(1);
+  if (err instanceof CommandError) {
+    console.error(`test-local: ${err.message}`);
+    process.exitCode = err.status ?? 1;
+  } else {
+    console.error(`test-local: ${err.stack ?? String(err)}`);
+    process.exitCode = 1;
+  }
 });

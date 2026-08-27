@@ -865,7 +865,7 @@ npm-test: ## Run npm packaging script tests
 npm-stage: ## Build host binary and stage host-only npm packages in target/npm
 	node npm/scripts/test-local.mjs --stage-only
 
-npm-pack: ## Stage and pack host-only npm tarballs (dry inspection)
+npm-pack: ## Stage and pack host-only npm tarballs, verify contents
 	node npm/scripts/test-local.mjs --pack-only
 
 npm-test-local: ## Full local e2e: build, stage, pack, install, run --help via shim
@@ -875,6 +875,16 @@ npm-test-local: ## Full local e2e: build, stage, pack, install, run --help via s
 Note: `npm-test` uses the quoted-glob form `node --test 'npm/scripts/*.test.mjs'`
 (not the directory form `node --test npm/scripts/`, which fails on Node ≥24);
 Node expands the glob itself (supported since v21).
+
+As-built notes (post-review): `--pack-only` is a self-inspecting content check,
+not manual inspection of tmp files — after `npm pack`, the script lists each
+tarball with `tar -tzf` and asserts `package/bin/restui.js` (main) and
+`package/bin/restui` (platform) are present (dumping the actual listing on
+mismatch), because `finally` deletes the tmp dir and any advertised path would
+be dead on arrival. Flags are parsed strictly: unknown arguments print usage and
+exit 2, and `--stage-only` + `--pack-only` together is an error. Failures throw
+(`CommandError` carries cmd/args/cwd/status) so the `finally` cleanup runs on
+every path.
 
 - [ ] **Step 3: Run the full local e2e**
 
