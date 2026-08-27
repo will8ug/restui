@@ -860,7 +860,7 @@ In `Makefile`, update the `.PHONY` line and append (keeping `## help` style):
 
 ```makefile
 npm-test: ## Run npm packaging script tests
-	node --test npm/scripts/
+	node --test 'npm/scripts/*.test.mjs'
 
 npm-stage: ## Build host binary and stage host-only npm packages in target/npm
 	node npm/scripts/test-local.mjs --stage-only
@@ -871,6 +871,10 @@ npm-pack: ## Stage and pack host-only npm tarballs (dry inspection)
 npm-test-local: ## Full local e2e: build, stage, pack, install, run --help via shim
 	node npm/scripts/test-local.mjs
 ```
+
+Note: `npm-test` uses the quoted-glob form `node --test 'npm/scripts/*.test.mjs'`
+(not the directory form `node --test npm/scripts/`, which fails on Node ≥24);
+Node expands the glob itself (supported since v21).
 
 - [ ] **Step 3: Run the full local e2e**
 
