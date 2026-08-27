@@ -32,7 +32,9 @@ npm/scripts/stage.test.mjs                  # create: node:test suite
 npm/scripts/test-local.mjs                  # create: local e2e verification
 .github/workflows/npm-publish.yml           # create: manual publish workflow
 Makefile                                    # modify: npm-* targets
-README.md                                   # modify: npm install + troubleshooting
+README.md                                   # modify: npm install + Documentation links
+docs/tls.md                                 # create: TLS troubleshooting (progressive disclosure)
+docs/releasing.md                           # create: maintainer npm release guide
 ```
 
 ---
@@ -985,12 +987,19 @@ git commit -m "Add manual npm publish workflow with provenance and resume-safe s
 
 ---
 
-### Task 7: Repo README — npm install + troubleshooting
+### Task 7: Docs — README updates + progressive-disclosure sub-docs
 
 **Files:**
-- Modify: `README.md` (Installation section)
+- Modify: `README.md` (Installation section; new Documentation section)
+- Create: `docs/tls.md`
+- Create: `docs/releasing.md`
 
-- [ ] **Step 1: Update the Installation section**
+Arrangement follows httptui's docs style: README stays a clean overview; details live
+in `docs/*.md`, linked with one-line descriptions. Exception: `npm/restui/README.md`
+(Task 3) keeps its troubleshooting inline — it is the npm landing page and cannot rely
+on GitHub-relative links.
+
+- [ ] **Step 1: Update the Installation section in README.md**
 
 Replace the current section:
 
@@ -1022,25 +1031,109 @@ cargo install --git https://github.com/will8ug/restui
 ```
 ```
 
-- [ ] **Step 2: Add a Troubleshooting section after Keybindings**
+- [ ] **Step 2: Add a Documentation section to README.md**
+
+Append at the end of `README.md` (after the Example `.http` file section):
 
 ```markdown
-## Troubleshooting
+## Documentation
 
-- **Custom TLS certificates** — restui uses rustls with the operating system's
-  trust store (Mozilla's root list as fallback). Certificates your machine already
-  trusts (e.g. corporate CAs) work without extra flags.
-- **Self-signed certificates you don't want to trust** — pass `--no-verify` to
-  disable certificate verification.
-- **musl Linux / Windows / other architectures** — no prebuilt npm binaries yet;
-  use `cargo install --git https://github.com/will8ug/restui`.
+- [TLS Troubleshooting](docs/tls.md) — Custom certificate authorities, `--no-verify`, and platform support.
+- [Releasing](docs/releasing.md) — Maintainer guide to publishing a new version to npm.
 ```
 
-- [ ] **Step 3: Commit**
+No troubleshooting details inline in the README — that is the point of the arrangement.
+
+- [ ] **Step 3: Create docs/tls.md**
+
+`docs/tls.md`:
+
+```markdown
+# TLS Troubleshooting
+
+restui uses rustls and loads the operating system's certificate store by default
+(macOS Keychain, Linux system certificate directories), with Mozilla's root list as
+a fallback. Certificates your machine already trusts — including corporate or
+locally-installed CAs — work without any flags.
+
+## Common fixes
+
+### 1. Trust your custom CA in the OS
+
+Add the CA certificate to your system store and restui picks it up automatically on
+the next start:
+
+- **macOS**: `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt`
+- **Debian/Ubuntu**: copy the cert to `/usr/local/share/ca-certificates/` and run `sudo update-ca-certificates`
+- **Fedora/RHEL**: copy the cert to `/etc/pki/ca-trust/source/anchors/` and run `sudo update-ca-trust`
+
+### 2. Skip certificate verification (not recommended)
+
+As a last resort, disable TLS verification entirely:
 
 ```bash
-git add README.md
-git commit -m "Document npm installation and TLS troubleshooting"
+restui --no-verify api.http
+```
+
+**Warning:** this disables all certificate checks, making connections vulnerable to
+man-in-the-middle attacks. Use only for local development or trusted networks.
+
+## Platform support
+
+The npm package ships prebuilt binaries for macOS (arm64, x64) and Linux x64 (glibc).
+On musl-based Linux, Windows, or other architectures, the `restui` shim exits with a
+clear error — install from source instead:
+
+```bash
+cargo install --git https://github.com/will8ug/restui
+```
+```
+
+- [ ] **Step 4: Create docs/releasing.md**
+
+`docs/releasing.md`:
+
+```markdown
+# Releasing
+
+Publishing restui to npm is a manual, two-step process. `Cargo.toml` is the single
+source of truth for the version — all npm packages are stamped from it at build time.
+
+## One-time setup
+
+1. An npm account (`npm whoami` works locally).
+2. A granular access token (npmjs.com → Access Tokens → **Granular Access Token**) with
+   **Read and write** permission, scoped to the packages `restui`,
+   `restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu`. If package
+   scoping is unavailable before the first publish, temporarily allow all packages and
+   narrow the token afterwards.
+3. Store the token as the `NPM_TOKEN` secret in the repository's
+   Settings → Secrets and variables → Actions.
+
+## Publishing a release
+
+1. Bump `version` in `Cargo.toml` and commit to `main`.
+2. GitHub → Actions → **npm-publish** → **Run workflow** (on `main`).
+3. Wait for the three build jobs and the publish job. Platform packages publish first,
+   the main `restui` package last. Packages already at the target version are skipped,
+   so re-running a partially-failed release is safe.
+
+The workflow attaches npm provenance (a sigstore attestation linking the packages to
+this repository's CI), which shows as a verified badge on the npm package pages.
+
+## Post-release smoke test
+
+```bash
+npx -y restui@<version> --help
+docker run --rm -it node:bookworm-slim npx -y restui@<version> --help  # linux-gnu
+```
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add README.md docs/tls.md docs/releasing.md
+git commit -m "Document npm installation, TLS troubleshooting, and release process"
 ```
 
 ---
@@ -1081,25 +1174,24 @@ kill $(cat s_server.pid)
 Optional strictness check: `--no-verify` against an *untrusted* cert should also
 succeed (verifies the flag still disables verification).
 
-- [ ] **Step 3: One-time npm setup (human steps, document in PR description)**
+- [ ] **Step 3: One-time npm setup (human steps — full guide in `docs/releasing.md`)**
+
+Verify `docs/releasing.md` (created in Task 7) covers these, then perform them:
 
 1. npm account exists, `npm whoami` works locally.
-2. Create a granular access token (npmjs.com → Access Tokens → Granular):
-   **Read and write**, packages `restui`, `restui-darwin-arm64`, `restui-darwin-x64`,
-   `restui-linux-x64-gnu` (if package-scoping is unavailable before first publish,
-   temporarily allow all packages and narrow after).
-3. Add it as the `NPM_TOKEN` secret in github.com/will8ug/restui → Settings → Secrets.
+2. Granular access token created (read/write, scoped to the four restui packages —
+   see `docs/releasing.md` for the day-zero fallback).
+3. Token stored as the `NPM_TOKEN` secret in repo settings.
 
-- [ ] **Step 4: Post-merge release runbook (first release)**
+- [ ] **Step 4: Post-merge release runbook (first release — documented in `docs/releasing.md`)**
 
 1. Push/merge all commits to `main`.
 2. GitHub → Actions → **npm-publish** → Run workflow (on `main`). Version comes from
    `Cargo.toml` (`0.1.0` unless bumped first).
 3. Watch the run: 3 build legs, then publish publishes 4 packages (platforms first).
-4. Smoke: `npx -y restui@0.1.0 --help` locally;
+4. Smoke per `docs/releasing.md`: `npx -y restui@0.1.0 --help` locally;
    `docker run --rm -it node:bookworm-slim npx -y restui@0.1.0 --help` for linux-gnu.
 5. Verify provenance badge on npmjs.com/package/restui.
-6. Future releases: bump `Cargo.toml` version → commit → Run workflow.
 
 ---
 
@@ -1109,7 +1201,9 @@ succeed (verifies the flag still disables verification).
   §4 workflow (Task 6), §5 staging incl. host-only mode + magic validation (Task 4),
   §6 versioning + all-skipped error (Task 6 publish step), §7 local targets (Task 5),
   §8 error paths (shim Task 3 + workflow Task 6), §9 testing (Tasks 1, 4, 5, 8 + post-merge
-  smoke 8.4), §10 setup (Task 8.3), §11/12 no action needed.
+  smoke 8.4), §10 setup (Tasks 7 + 8.3, documented in docs/releasing.md), §11/12 no
+  action needed. README keeps a clean overview with Documentation links (httptui-style
+  progressive disclosure); troubleshooting detail lives in docs/tls.md.
 - **Type consistency:** triples (`aarch64-apple-darwin`, `x86_64-apple-darwin`,
   `x86_64-unknown-linux-gnu`) and artifact layout `<binaries-dir>/<triple>/restui` are
   identical in `stage.mjs`, `stage.test.mjs`, `test-local.mjs`, and the workflow.
