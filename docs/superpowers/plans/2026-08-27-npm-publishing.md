@@ -235,7 +235,8 @@ git commit -m "Add npm platform package templates and gitignore negation"
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/will8ug/restui.git"
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui"
   },
   "bin": {
     "restui": "bin/restui.js"
@@ -361,6 +362,8 @@ npx restui example.http
 ```
 
 Rust users: `cargo install --git https://github.com/will8ug/restui`.
+
+Requires Node 14+.
 
 ## Usage
 

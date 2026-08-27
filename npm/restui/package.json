@@ -5,7 +5,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/will8ug/restui.git"
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui"
   },
   "bin": {
     "restui": "bin/restui.js"

@@ -13,6 +13,8 @@ npx restui example.http
 
 Rust users: `cargo install --git https://github.com/will8ug/restui`.
 
+Requires Node 14+.
+
 ## Usage
 
 ```bash
