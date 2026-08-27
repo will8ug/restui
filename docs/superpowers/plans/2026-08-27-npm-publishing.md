@@ -538,7 +538,11 @@ test('fails when a binary has the wrong magic bytes', async () => {
 - [ ] **Step 2: Run the suite to verify it fails**
 
 Run: `node --test npm/scripts/`
-Expected: 4 failing (stage.mjs does not exist), `ENOENT` for `npm/scripts/stage.mjs`.
+Expected: 5 failing (stage.mjs does not exist), `ENOENT` for `npm/scripts/stage.mjs`.
+
+Node note: on Node ≥24 the directory form `node --test npm/scripts/` fails with
+MODULE_NOT_FOUND (directory args are no longer scanned) — use
+`node --test npm/scripts/stage.test.mjs` or `node --test 'npm/scripts/*.test.mjs'`.
 
 - [ ] **Step 3: Implement stage.mjs**
 
@@ -549,10 +553,11 @@ Expected: 4 failing (stage.mjs does not exist), `ENOENT` for `npm/scripts/stage.
 // Stage restui npm packages: copy templates from npm/, stamp the version from
 // Cargo.toml, place binaries, validate. Never publishes.
 //
-// Usage: node npm/scripts/stage.mjs [--only-host] [--binaries-dir <dir>] [--out <dir>]
-//   --binaries-dir  directory containing <triple>/restui binaries (default: ./artifacts)
-//   --out           staging directory (default: ./target/npm)
-//   --only-host     stage only the current machine's platform package + main
+// Usage: node npm/scripts/stage.mjs [--only-host] [--binaries-dir <dir>] [--out <dir>] [--templates-dir <dir>]
+//   --binaries-dir   directory containing <triple>/restui binaries (default: ./artifacts)
+//   --out            staging directory (default: ./target/npm)
+//   --only-host      stage only the current machine's platform package + main
+//   --templates-dir  package templates root (default: ./npm)
 
 import { exit } from 'node:process';
 import { access, chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -691,16 +696,22 @@ async function main() {
 main().catch((err) => die(err.stack ?? String(err)));
 ```
 
+Notes on the implemented script (kept truthful with the code):
+- Accepts `--templates-dir <dir>` (package templates root, default `./npm`) — used by
+  tests to stage against modified template copies.
+- Validates every template has `repository.url` (provenance E422 guard) before any
+  staging work, for both platform packages and the main package.
+
 - [ ] **Step 4: Run the suite to verify it passes**
 
 Run: `node --test npm/scripts/`
-Expected: 4 pass (1 may report `skip` if run on an unsupported host — on this repo's
-darwin-arm64 dev machine all 4 pass).
+Expected: 5 pass (the provenance-guard test included; host-skip only on unsupported
+hosts — on this repo's darwin-arm64 dev machine all 5 pass).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add npm/scripts/stage.mjs npm/scripts/stage.test.mjs
+git add npm/scripts/stage.mjs npm/scripts/stage.test.mjs docs/superpowers/plans/2026-08-27-npm-publishing.md
 git commit -m "Add npm package staging script with validation and tests"
 ```
 
