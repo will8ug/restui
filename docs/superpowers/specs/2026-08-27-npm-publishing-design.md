@@ -102,9 +102,14 @@ reqwest = { version = "0.12", features = ["blocking", "json"] }
 
 # after
 reqwest = { version = "0.12", default-features = false, features = [
-  "blocking", "json", "rustls-tls-native-roots", "rustls-tls-webpki-roots",
+  "blocking", "json", "http2", "charset", "system-proxy",
+  "rustls-tls-native-roots", "rustls-tls-webpki-roots",
 ] }
 ```
+
+The `http2`, `charset`, and `system-proxy` features restore the reqwest defaults
+that `default-features = false` would otherwise disable (only `default-tls` is
+intentionally dropped); all three are cross-compile-safe.
 
 Why: default features pull `native-tls` → `openssl-sys` on Linux, the worst-case
 cross-compile story. Rustls is statically linked and builds cleanly everywhere.

@@ -52,9 +52,16 @@ Replace line 12 of `Cargo.toml`:
 # before
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 # after
+# rustls (static TLS, clean cross-compile) instead of native-tls; native roots
+# preserve system-trust-store behavior for custom CAs, webpki roots are the
+# fallback. http2/charset/system-proxy restore reqwest defaults lost to
+# default-features = false. See docs/superpowers/specs/2026-08-27-npm-publishing-design.md §3.
 reqwest = { version = "0.12", default-features = false, features = [
     "blocking",
     "json",
+    "http2",
+    "charset",
+    "system-proxy",
     "rustls-tls-native-roots",
     "rustls-tls-webpki-roots",
 ] }
