@@ -1,0 +1,104 @@
+name: npm-publish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # npm provenance (sigstore attestation)
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triple: aarch64-apple-darwin
+            runs-on: macos-14
+          - triple: x86_64-apple-darwin
+            runs-on: macos-14
+          - triple: x86_64-unknown-linux-gnu
+            runs-on: ubuntu-latest
+            zigbuild: true
+    runs-on: ${{ matrix.runs-on }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.12" # rustls floor; no-op on linux
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.triple }}
+      - name: Install cargo-zigbuild
+        if: matrix.zigbuild
+        run: |
+          pip install ziglang
+          cargo install cargo-zigbuild --locked
+      - name: Build (zigbuild, glibc 2.17 floor)
+        if: matrix.zigbuild
+        run: cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17
+      - name: Build
+        if: ${{ !matrix.zigbuild }}
+        run: cargo build --release --target ${{ matrix.triple }}
+      - name: Verify binary
+        run: file target/${{ matrix.triple }}/release/restui
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.triple }}
+          path: target/${{ matrix.triple }}/release/restui
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v6
+        with:
+          name: aarch64-apple-darwin
+          path: artifacts/aarch64-apple-darwin
+      - uses: actions/download-artifact@v6
+        with:
+          name: x86_64-apple-darwin
+          path: artifacts/x86_64-apple-darwin
+      - uses: actions/download-artifact@v6
+        with:
+          name: x86_64-unknown-linux-gnu
+          path: artifacts/x86_64-unknown-linux-gnu
+      - name: Stage package tests
+        run: node --test 'npm/scripts/*.test.mjs'
+      - name: Stage packages
+        run: node npm/scripts/stage.mjs --binaries-dir artifacts
+      - name: Publish (platforms first, main last, skip existing)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./target/npm/restui/package.json').version")
+          packages=(restui-darwin-arm64 restui-darwin-x64 restui-linux-x64-gnu restui)
+          published=0
+          for name in "${packages[@]}"; do
+            dir="target/npm/$name"
+            if npm view "$name@$VERSION" --loglevel=error >/dev/null 2>&1; then
+              echo "::notice::$name@$VERSION already published — skipping"
+              continue
+            fi
+            (cd "$dir" && npm publish --access public --provenance)
+            echo "published $name@$VERSION"
+            published=$((published + 1))
+          done
+          if [ "$published" -eq 0 ]; then
+            echo "::error::All packages at version $VERSION are already published. Bump version in Cargo.toml and re-run."
+            exit 1
+          fi
+          echo "Done: published $published package(s) at $VERSION"
