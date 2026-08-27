@@ -136,12 +136,14 @@ Trigger: `workflow_dispatch` only. No version input — the version is read from
 ```yaml
 permissions:
   contents: read
-  id-token: write        # npm provenance (sigstore attestation)
 
 concurrency:
   group: npm-publish
   cancel-in-progress: false   # serialize accidental double-clicks
 ```
+
+The `publish` job carries its own `permissions: { contents: read, id-token: write }`
+for npm provenance — least privilege, so the build jobs never mint OIDC tokens.
 
 ### Jobs
 
@@ -155,8 +157,12 @@ concurrency:
 
 Each leg: checkout → `dtolnay/rust-toolchain@stable` with the target added → cache
 (`Swatinem/rust-cache`) → build → `file` sanity check on the binary (ELF/Mach-O + arch)
-→ upload artifact (`actions/upload-artifact`, names `restui-aarch64-apple-darwin`,
-`restui-x86_64-apple-darwin`, `restui-x86_64-unknown-linux-gnu`).
+→ upload artifact (`actions/upload-artifact`, names `aarch64-apple-darwin`,
+`x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`).
+
+The Linux leg installs `ziglang` pinned to `0.14.1` via a standalone `setup-python`
+interpreter (dodging PEP 668's externally-managed system python), then asserts the
+built binary's maximum glibc symbol reference is `GLIBC_2.17` before upload.
 
 **`publish`** (needs all three build legs, `ubuntu-latest`):
 
