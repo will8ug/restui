@@ -66,8 +66,10 @@ function die(message) {
 
 async function cargoVersion() {
   const toml = await readFile(path.join(REPO, 'Cargo.toml'), 'utf8');
-  const match = toml.match(/^version\s*=\s*"([^"]+)"/m);
-  if (!match) die('could not read version from Cargo.toml');
+  // Scoped to the [package] table: [^\[]*? keeps the match inside the table, so a
+  // `version` key in any other table (dependencies, workspace, ...) can't win.
+  const match = toml.match(/^\[package\][^\[]*?^version\s*=\s*"([^"]+)"/ms);
+  if (!match) die('could not read version from the [package] table of Cargo.toml');
   return match[1];
 }
 

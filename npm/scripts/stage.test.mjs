@@ -22,7 +22,7 @@ const HOST_TRIPLE = {
 
 async function cargoVersion() {
   const toml = await readFile(path.join(REPO, 'Cargo.toml'), 'utf8');
-  return toml.match(/^version\s*=\s*"([^"]+)"/m)[1];
+  return toml.match(/^\[package\][^\[]*?^version\s*=\s*"([^"]+)"/ms)[1];
 }
 
 async function makeFakeBinaries(dir, { skip = [], corrupt = [] } = {}) {
@@ -112,6 +112,36 @@ test('fails when a binary has the wrong magic bytes', async () => {
     const res = runStage(['--binaries-dir', binaries, '--out', out]);
     assert.notEqual(res.status, 0);
     assert.match(res.stderr, /magic/i);
+  });
+});
+
+test('fails when a binary is smaller than 1MB', async (t) => {
+  if (!HOST_TRIPLE) return t.skip('host platform not in package set');
+  await withTemp(async (dir) => {
+    const binaries = path.join(dir, 'artifacts');
+    const out = path.join(dir, 'out');
+    const hostPkg = PACKAGES.find((p) => p.triple === HOST_TRIPLE);
+    await mkdir(path.join(binaries, hostPkg.triple), { recursive: true });
+    const buf = Buffer.alloc(1024 * 600, 0); // 600KB — correct magic, too small
+    Buffer.from(hostPkg.magic).copy(buf, 0);
+    await writeFile(path.join(binaries, hostPkg.triple, 'restui'), buf);
+    const res = runStage(['--only-host', '--binaries-dir', binaries, '--out', out]);
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /bytes/i);
+  });
+});
+
+test('clears stale content from the out directory before staging', async (t) => {
+  if (!HOST_TRIPLE) return t.skip('host platform not in package set');
+  await withTemp(async (dir) => {
+    const binaries = path.join(dir, 'artifacts');
+    const out = path.join(dir, 'out');
+    await makeFakeBinaries(binaries, { skip: PACKAGES.filter((p) => p.triple !== HOST_TRIPLE).map((p) => p.triple) });
+    await mkdir(path.join(out, 'stale-pkg', 'bin'), { recursive: true });
+    await writeFile(path.join(out, 'stale-pkg', 'package.json'), '{"stale": true}');
+    const res = runStage(['--only-host', '--binaries-dir', binaries, '--out', out]);
+    assert.equal(res.status, 0, `stderr: ${res.stderr}`);
+    assert.ok(!existsSync(path.join(out, 'stale-pkg')), 'stale package removed');
   });
 });
 
