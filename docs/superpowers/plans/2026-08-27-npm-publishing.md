@@ -105,9 +105,9 @@ git commit -m "Switch reqwest to rustls with native and webpki roots"
 
 **Files:**
 - Modify: `.gitignore`
-- Create: `npm/restui-darwin-arm64/package.json`, `npm/restui-darwin-arm64/README.md`
-- Create: `npm/restui-darwin-x64/package.json`, `npm/restui-darwin-x64/README.md`
-- Create: `npm/restui-linux-x64-gnu/package.json`, `npm/restui-linux-x64-gnu/README.md`
+- Create: `npm/restui-darwin-arm64/package.json`, `npm/restui-darwin-arm64/README.md`, `npm/restui-darwin-arm64/LICENSE` (copy of repo `LICENSE`)
+- Create: `npm/restui-darwin-x64/package.json`, `npm/restui-darwin-x64/README.md`, `npm/restui-darwin-x64/LICENSE` (copy of repo `LICENSE`)
+- Create: `npm/restui-linux-x64-gnu/package.json`, `npm/restui-linux-x64-gnu/README.md`, `npm/restui-linux-x64-gnu/LICENSE` (copy of repo `LICENSE`)
 
 - [ ] **Step 1: Add the gitignore negation**
 
@@ -129,6 +129,11 @@ Required because the bare `package.json` pattern ignores the npm templates at an
   "version": "0.0.0",
   "description": "restui binary for macOS arm64",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-darwin-arm64"
+  },
   "os": ["darwin"],
   "cpu": ["arm64"],
   "files": ["bin"]
@@ -143,6 +148,11 @@ Required because the bare `package.json` pattern ignores the npm templates at an
   "version": "0.0.0",
   "description": "restui binary for macOS x64",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-darwin-x64"
+  },
   "os": ["darwin"],
   "cpu": ["x64"],
   "files": ["bin"]
@@ -157,15 +167,23 @@ Required because the bare `package.json` pattern ignores the npm templates at an
   "version": "0.0.0",
   "description": "restui binary for Linux x64 (glibc)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-linux-x64-gnu"
+  },
   "os": ["linux"],
   "cpu": ["x64"],
   "files": ["bin"]
 }
 ```
 
-Notes: `version` is a placeholder — `stage.mjs` stamps the real one. No `exports` field
+Notes: `version` is a placeholder — `stage.mjs` stamps the real one. The `repository` field
+is required for npm provenance (Task 6 publishes with `--provenance`; the registry rejects
+packages whose `repository.url` doesn't match with E422). No `exports` field
 (the shim deep-resolves `bin/restui`). `0.0.0` is never published because staging always
-stamps it first.
+stamps it first. Each platform dir also gets a copy of the repo `LICENSE` for parity with
+the main package.
 
 - [ ] **Step 3: Create the three one-liner READMEs**
 
@@ -184,8 +202,9 @@ Prebuilt `restui` binary for macOS arm64. Installed automatically by the
 - [ ] **Step 4: Verify git tracks the templates**
 
 Run: `git status --short`
-Expected: the six `npm/` files listed as untracked (proves the negation works). If any
-`npm/**/package.json` is missing from the list, the negation is wrong — fix before committing.
+Expected: the nine `npm/` files (3 × package.json + README.md + LICENSE) listed as untracked
+(proves the negation works). If any `npm/**/package.json` is missing from the list, the
+negation is wrong — fix before committing.
 
 - [ ] **Step 5: Commit**
 

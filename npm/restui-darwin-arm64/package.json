@@ -3,6 +3,11 @@
   "version": "0.0.0",
   "description": "restui binary for macOS arm64",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-darwin-arm64"
+  },
   "os": ["darwin"],
   "cpu": ["arm64"],
   "files": ["bin"]
