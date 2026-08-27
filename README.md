@@ -5,6 +5,8 @@
 
 A terminal UI REST client for `.http` request files.
 
+![restui overall](assets/restui-overall.png)
+
 ## Features
 
 - Parse REST Client-style `.http` files with multiple named requests
@@ -12,6 +14,8 @@ A terminal UI REST client for `.http` request files.
 - Send requests from a keyboard-driven terminal interface
 - Inspect formatted responses, headers, timing, and size metadata
 - Reload request files without restarting the app
+
+![restui shortcuts](assets/restui-shortcuts.png)
 
 ## Installation
 
