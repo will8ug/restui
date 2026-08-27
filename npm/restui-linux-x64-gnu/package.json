@@ -1,0 +1,9 @@
+{
+  "name": "restui-linux-x64-gnu",
+  "version": "0.0.0",
+  "description": "restui binary for Linux x64 (glibc)",
+  "license": "MIT",
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "files": ["bin"]
+}

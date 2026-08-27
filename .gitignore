@@ -57,6 +57,7 @@ __pycache__/
 node_modules/
 package-lock.json
 package.json
+!npm/**/package.json
 
 ## Rustdoc GUI tests
 tests/rustdoc-gui/src/**.lock
