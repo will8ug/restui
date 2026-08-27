@@ -4,7 +4,7 @@
 
 **Goal:** Make restui installable from the npm public registry (`npm i -g restui` / `npx restui`) via prebuilt platform packages published by a manually-triggered GitHub Actions workflow.
 
-**Architecture:** Main `restui` npm package contains a zero-dependency Node shim that resolves and spawns the binary from one of three exact-pinned `optionalDependencies` platform packages (`restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu`). A `workflow_dispatch` workflow builds the three binaries (native/cross on macos-14, zigbuild on ubuntu), stages the four packages with the version stamped from `Cargo.toml` (single source of truth), and publishes platforms-first with skip-if-exists resume logic and npm provenance.
+**Architecture:** Main `restui` npm package contains a zero-dependency Node shim that resolves and spawns the binary from one of three exact-pinned `optionalDependencies` platform packages (`restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu`). A `workflow_dispatch` workflow builds the three binaries (native/cross on macos-15, zigbuild on ubuntu), stages the four packages with the version stamped from `Cargo.toml` (single source of truth), and publishes platforms-first with skip-if-exists resume logic and npm provenance.
 
 **Tech Stack:** Rust (reqwest → rustls swap), Node ≥18 stdlib scripts (no npm deps), `cargo-zigbuild` + `pip install ziglang` for glibc 2.17, GitHub Actions (`workflow_dispatch`, OIDC provenance).
 
@@ -923,7 +923,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance (sigstore attestation)
 
 concurrency:
   group: npm-publish
@@ -936,12 +935,15 @@ jobs:
       matrix:
         include:
           - triple: aarch64-apple-darwin
-            runs-on: macos-14
+            runs-on: macos-15
+            expected-arch: arm64
           - triple: x86_64-apple-darwin
-            runs-on: macos-14
+            runs-on: macos-15
+            expected-arch: x86_64
           - triple: x86_64-unknown-linux-gnu
             runs-on: ubuntu-latest
             zigbuild: true
+            expected-arch: x86-64
     runs-on: ${{ matrix.runs-on }}
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.12" # rustls floor; no-op on linux
@@ -953,19 +955,33 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.triple }}
+      - uses: actions/setup-python@v6
+        if: matrix.zigbuild
+        with:
+          python-version: "3.13"
       - name: Install cargo-zigbuild
         if: matrix.zigbuild
         run: |
-          pip install ziglang
+          pip install ziglang==0.14.1
           cargo install cargo-zigbuild --locked
       - name: Build (zigbuild, glibc 2.17 floor)
         if: matrix.zigbuild
         run: cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17
+      - name: Assert glibc floor
+        if: matrix.zigbuild
+        run: |
+          max="$(objdump -T target/x86_64-unknown-linux-gnu/release/restui \
+                | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n1)"
+          [ "$max" = "GLIBC_2.17" ] || { echo "::error::max glibc symbol ref is $max, expected 2.17"; exit 1; }
+          echo "glibc floor verified: $max"
       - name: Build
         if: ${{ !matrix.zigbuild }}
         run: cargo build --release --target ${{ matrix.triple }}
       - name: Verify binary
-        run: file target/${{ matrix.triple }}/release/restui
+        run: |
+          file target/${{ matrix.triple }}/release/restui
+          file target/${{ matrix.triple }}/release/restui | grep -q "${{ matrix.expected-arch }}" \
+            || { echo "::error::unexpected architecture for ${{ matrix.triple }}"; exit 1; }
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.triple }}
@@ -975,24 +991,29 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: aarch64-apple-darwin
           path: artifacts/aarch64-apple-darwin
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: x86_64-apple-darwin
           path: artifacts/x86_64-apple-darwin
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: x86_64-unknown-linux-gnu
           path: artifacts/x86_64-unknown-linux-gnu
+      - name: Stage package tests
+        run: node --test 'npm/scripts/*.test.mjs'
       - name: Stage packages
         run: node npm/scripts/stage.mjs --binaries-dir artifacts
       - name: Publish (platforms first, main last, skip existing)

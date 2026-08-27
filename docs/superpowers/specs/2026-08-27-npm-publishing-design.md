@@ -149,8 +149,8 @@ concurrency:
 
 | Leg | Runner | Build |
 |---|---|---|
-| darwin-arm64 | `macos-14` | `cargo build --release --target aarch64-apple-darwin` |
-| darwin-x64 | `macos-14` | `cargo build --release --target x86_64-apple-darwin` (Apple toolchain cross-compiles mac↔mac; macos-13 x64 runners are being retired, so cross from arm64) |
+| darwin-arm64 | `macos-15` | `cargo build --release --target aarch64-apple-darwin` |
+| darwin-x64 | `macos-15` | `cargo build --release --target x86_64-apple-darwin` (Apple toolchain cross-compiles mac↔mac; the Intel macos-13 x64 runners are retired, so cross-compile from the arm64 macos-15 runner) |
 | linux-x64 | `ubuntu-latest` | `cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17` (zig via `pip install ziglang`, cargo-zigbuild via `cargo install cargo-zigbuild --locked`; glibc 2.17 floor) |
 
 Each leg: checkout → `dtolnay/rust-toolchain@stable` with the target added → cache
@@ -264,5 +264,5 @@ Publishing is CI-only; local targets verify packaging without touching the regis
 | `restui-*` names squatted before first publish | Publish soon after merge; names verified free 2026-08-27 |
 | rustls behavioral edge (e.g. cert type it won't parse) | Manual checklist §9.2 before release; `--no-verify` escape hatch; cargo fallback documented |
 | glibc 2.17 floor insufficiently/overly broad | 2.17 covers CentOS 7-era to modern distros; musl users get a clear error, can request musl package later |
-| macos-14 runner defaults target newer macOS than users run | `MACOSX_DEPLOYMENT_TARGET=10.12` env (rustls's own floor) on both darwin build legs |
+| macos-15 runner defaults target newer macOS than users run | `MACOSX_DEPLOYMENT_TARGET=10.12` env (rustls's own floor) on both darwin build legs |
 | Provenance unsupported (npm < 9.5 / registry quirk) | Workflow pins Node LTS (npm ≥ 9.5); `--provenance` failure is a hard error, not silent |
