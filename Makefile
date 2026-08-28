@@ -1,4 +1,4 @@
-.PHONY: build test clippy fmt lint check run run-sample install clean coverage coverage-ci help
+.PHONY: build test clippy fmt lint check run run-sample install clean coverage coverage-ci help npm-test npm-stage npm-pack npm-test-local
 
 BINARY := restui
 SAMPLE := examples/sample.http
@@ -49,3 +49,15 @@ coverage-ci: ## Run coverage for CI (XML output, 60% threshold)
 
 clean: ## Remove build artifacts
 	cargo clean
+
+npm-test: ## Run npm packaging script tests
+	node --test 'npm/scripts/*.test.mjs'
+
+npm-stage: ## Build host binary and stage host-only npm packages in target/npm
+	node npm/scripts/test-local.mjs --stage-only
+
+npm-pack: ## Stage and pack host-only npm tarballs, verify contents
+	node npm/scripts/test-local.mjs --pack-only
+
+npm-test-local: ## Full local e2e: build, stage, pack, install, run --help via shim
+	node npm/scripts/test-local.mjs

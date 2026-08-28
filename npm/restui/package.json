@@ -1,0 +1,29 @@
+{
+  "name": "restui",
+  "version": "0.0.0",
+  "description": "A TUI REST client for .http files",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui"
+  },
+  "bin": {
+    "restui": "bin/restui.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "keywords": [
+    "rest",
+    "http",
+    "tui",
+    "client",
+    "rest-client",
+    "http-file"
+  ],
+  "optionalDependencies": {}
+}

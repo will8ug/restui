@@ -1,0 +1,14 @@
+{
+  "name": "restui-darwin-x64",
+  "version": "0.0.0",
+  "description": "restui binary for macOS x64",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-darwin-x64"
+  },
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin"]
+}

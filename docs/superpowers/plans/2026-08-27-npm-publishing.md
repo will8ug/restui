@@ -4,7 +4,7 @@
 
 **Goal:** Make restui installable from the npm public registry (`npm i -g restui` / `npx restui`) via prebuilt platform packages published by a manually-triggered GitHub Actions workflow.
 
-**Architecture:** Main `restui` npm package contains a zero-dependency Node shim that resolves and spawns the binary from one of three exact-pinned `optionalDependencies` platform packages (`restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu`). A `workflow_dispatch` workflow builds the three binaries (native/cross on macos-14, zigbuild on ubuntu), stages the four packages with the version stamped from `Cargo.toml` (single source of truth), and publishes platforms-first with skip-if-exists resume logic and npm provenance.
+**Architecture:** Main `restui` npm package contains a zero-dependency Node shim that resolves and spawns the binary from one of three exact-pinned `optionalDependencies` platform packages (`restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu`). A `workflow_dispatch` workflow builds the three binaries (native/cross on macos-15, zigbuild on ubuntu), stages the four packages with the version stamped from `Cargo.toml` (single source of truth), and publishes platforms-first with skip-if-exists resume logic and npm provenance.
 
 **Tech Stack:** Rust (reqwest → rustls swap), Node ≥18 stdlib scripts (no npm deps), `cargo-zigbuild` + `pip install ziglang` for glibc 2.17, GitHub Actions (`workflow_dispatch`, OIDC provenance).
 
@@ -52,9 +52,16 @@ Replace line 12 of `Cargo.toml`:
 # before
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 # after
+# rustls (static TLS, clean cross-compile) instead of native-tls; native roots
+# preserve system-trust-store behavior for custom CAs, webpki roots are the
+# fallback. http2/charset/system-proxy restore reqwest defaults lost to
+# default-features = false. See docs/superpowers/specs/2026-08-27-npm-publishing-design.md §3.
 reqwest = { version = "0.12", default-features = false, features = [
     "blocking",
     "json",
+    "http2",
+    "charset",
+    "system-proxy",
     "rustls-tls-native-roots",
     "rustls-tls-webpki-roots",
 ] }
@@ -98,9 +105,9 @@ git commit -m "Switch reqwest to rustls with native and webpki roots"
 
 **Files:**
 - Modify: `.gitignore`
-- Create: `npm/restui-darwin-arm64/package.json`, `npm/restui-darwin-arm64/README.md`
-- Create: `npm/restui-darwin-x64/package.json`, `npm/restui-darwin-x64/README.md`
-- Create: `npm/restui-linux-x64-gnu/package.json`, `npm/restui-linux-x64-gnu/README.md`
+- Create: `npm/restui-darwin-arm64/package.json`, `npm/restui-darwin-arm64/README.md`, `npm/restui-darwin-arm64/LICENSE` (copy of repo `LICENSE`)
+- Create: `npm/restui-darwin-x64/package.json`, `npm/restui-darwin-x64/README.md`, `npm/restui-darwin-x64/LICENSE` (copy of repo `LICENSE`)
+- Create: `npm/restui-linux-x64-gnu/package.json`, `npm/restui-linux-x64-gnu/README.md`, `npm/restui-linux-x64-gnu/LICENSE` (copy of repo `LICENSE`)
 
 - [ ] **Step 1: Add the gitignore negation**
 
@@ -122,6 +129,11 @@ Required because the bare `package.json` pattern ignores the npm templates at an
   "version": "0.0.0",
   "description": "restui binary for macOS arm64",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-darwin-arm64"
+  },
   "os": ["darwin"],
   "cpu": ["arm64"],
   "files": ["bin"]
@@ -136,6 +148,11 @@ Required because the bare `package.json` pattern ignores the npm templates at an
   "version": "0.0.0",
   "description": "restui binary for macOS x64",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-darwin-x64"
+  },
   "os": ["darwin"],
   "cpu": ["x64"],
   "files": ["bin"]
@@ -150,15 +167,23 @@ Required because the bare `package.json` pattern ignores the npm templates at an
   "version": "0.0.0",
   "description": "restui binary for Linux x64 (glibc)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-linux-x64-gnu"
+  },
   "os": ["linux"],
   "cpu": ["x64"],
   "files": ["bin"]
 }
 ```
 
-Notes: `version` is a placeholder — `stage.mjs` stamps the real one. No `exports` field
+Notes: `version` is a placeholder — `stage.mjs` stamps the real one. The `repository` field
+is required for npm provenance (Task 6 publishes with `--provenance`; the registry rejects
+packages whose `repository.url` doesn't match with E422). No `exports` field
 (the shim deep-resolves `bin/restui`). `0.0.0` is never published because staging always
-stamps it first.
+stamps it first. Each platform dir also gets a copy of the repo `LICENSE` for parity with
+the main package.
 
 - [ ] **Step 3: Create the three one-liner READMEs**
 
@@ -177,8 +202,9 @@ Prebuilt `restui` binary for macOS arm64. Installed automatically by the
 - [ ] **Step 4: Verify git tracks the templates**
 
 Run: `git status --short`
-Expected: the six `npm/` files listed as untracked (proves the negation works). If any
-`npm/**/package.json` is missing from the list, the negation is wrong — fix before committing.
+Expected: the nine `npm/` files (3 × package.json + README.md + LICENSE) listed as untracked
+(proves the negation works). If any `npm/**/package.json` is missing from the list, the
+negation is wrong — fix before committing.
 
 - [ ] **Step 5: Commit**
 
@@ -209,7 +235,8 @@ git commit -m "Add npm platform package templates and gitignore negation"
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/will8ug/restui.git"
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui"
   },
   "bin": {
     "restui": "bin/restui.js"
@@ -335,6 +362,8 @@ npx restui example.http
 ```
 
 Rust users: `cargo install --git https://github.com/will8ug/restui`.
+
+Requires Node 14+.
 
 ## Usage
 
@@ -509,7 +538,11 @@ test('fails when a binary has the wrong magic bytes', async () => {
 - [ ] **Step 2: Run the suite to verify it fails**
 
 Run: `node --test npm/scripts/`
-Expected: 4 failing (stage.mjs does not exist), `ENOENT` for `npm/scripts/stage.mjs`.
+Expected: 5 failing (stage.mjs does not exist), `ENOENT` for `npm/scripts/stage.mjs`.
+
+Node note: on Node ≥24 the directory form `node --test npm/scripts/` fails with
+MODULE_NOT_FOUND (directory args are no longer scanned) — use
+`node --test npm/scripts/stage.test.mjs` or `node --test 'npm/scripts/*.test.mjs'`.
 
 - [ ] **Step 3: Implement stage.mjs**
 
@@ -520,10 +553,11 @@ Expected: 4 failing (stage.mjs does not exist), `ENOENT` for `npm/scripts/stage.
 // Stage restui npm packages: copy templates from npm/, stamp the version from
 // Cargo.toml, place binaries, validate. Never publishes.
 //
-// Usage: node npm/scripts/stage.mjs [--only-host] [--binaries-dir <dir>] [--out <dir>]
-//   --binaries-dir  directory containing <triple>/restui binaries (default: ./artifacts)
-//   --out           staging directory (default: ./target/npm)
-//   --only-host     stage only the current machine's platform package + main
+// Usage: node npm/scripts/stage.mjs [--only-host] [--binaries-dir <dir>] [--out <dir>] [--templates-dir <dir>]
+//   --binaries-dir   directory containing <triple>/restui binaries (default: ./artifacts)
+//   --out            staging directory (default: ./target/npm)
+//   --only-host      stage only the current machine's platform package + main
+//   --templates-dir  package templates root (default: ./npm)
 
 import { exit } from 'node:process';
 import { access, chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -662,16 +696,22 @@ async function main() {
 main().catch((err) => die(err.stack ?? String(err)));
 ```
 
+Notes on the implemented script (kept truthful with the code):
+- Accepts `--templates-dir <dir>` (package templates root, default `./npm`) — used by
+  tests to stage against modified template copies.
+- Validates every template has `repository.url` (provenance E422 guard) before any
+  staging work, for both platform packages and the main package.
+
 - [ ] **Step 4: Run the suite to verify it passes**
 
 Run: `node --test npm/scripts/`
-Expected: 4 pass (1 may report `skip` if run on an unsupported host — on this repo's
-darwin-arm64 dev machine all 4 pass).
+Expected: 5 pass (the provenance-guard test included; host-skip only on unsupported
+hosts — on this repo's darwin-arm64 dev machine all 5 pass).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add npm/scripts/stage.mjs npm/scripts/stage.test.mjs
+git add npm/scripts/stage.mjs npm/scripts/stage.test.mjs docs/superpowers/plans/2026-08-27-npm-publishing.md
 git commit -m "Add npm package staging script with validation and tests"
 ```
 
@@ -820,17 +860,31 @@ In `Makefile`, update the `.PHONY` line and append (keeping `## help` style):
 
 ```makefile
 npm-test: ## Run npm packaging script tests
-	node --test npm/scripts/
+	node --test 'npm/scripts/*.test.mjs'
 
 npm-stage: ## Build host binary and stage host-only npm packages in target/npm
 	node npm/scripts/test-local.mjs --stage-only
 
-npm-pack: ## Stage and pack host-only npm tarballs (dry inspection)
+npm-pack: ## Stage and pack host-only npm tarballs, verify contents
 	node npm/scripts/test-local.mjs --pack-only
 
 npm-test-local: ## Full local e2e: build, stage, pack, install, run --help via shim
 	node npm/scripts/test-local.mjs
 ```
+
+Note: `npm-test` uses the quoted-glob form `node --test 'npm/scripts/*.test.mjs'`
+(not the directory form `node --test npm/scripts/`, which fails on Node ≥24);
+Node expands the glob itself (supported since v21).
+
+As-built notes (post-review): `--pack-only` is a self-inspecting content check,
+not manual inspection of tmp files — after `npm pack`, the script lists each
+tarball with `tar -tzf` and asserts `package/bin/restui.js` (main) and
+`package/bin/restui` (platform) are present (dumping the actual listing on
+mismatch), because `finally` deletes the tmp dir and any advertised path would
+be dead on arrival. Flags are parsed strictly: unknown arguments print usage and
+exit 2, and `--stage-only` + `--pack-only` together is an error. Failures throw
+(`CommandError` carries cmd/args/cwd/status) so the `finally` cleanup runs on
+every path.
 
 - [ ] **Step 3: Run the full local e2e**
 
@@ -869,7 +923,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance (sigstore attestation)
 
 concurrency:
   group: npm-publish
@@ -882,12 +935,15 @@ jobs:
       matrix:
         include:
           - triple: aarch64-apple-darwin
-            runs-on: macos-14
+            runs-on: macos-15
+            expected-arch: arm64
           - triple: x86_64-apple-darwin
-            runs-on: macos-14
+            runs-on: macos-15
+            expected-arch: x86_64
           - triple: x86_64-unknown-linux-gnu
             runs-on: ubuntu-latest
             zigbuild: true
+            expected-arch: x86-64
     runs-on: ${{ matrix.runs-on }}
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.12" # rustls floor; no-op on linux
@@ -899,19 +955,33 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.triple }}
+      - uses: actions/setup-python@v6
+        if: matrix.zigbuild
+        with:
+          python-version: "3.13"
       - name: Install cargo-zigbuild
         if: matrix.zigbuild
         run: |
-          pip install ziglang
+          pip install ziglang==0.14.1
           cargo install cargo-zigbuild --locked
       - name: Build (zigbuild, glibc 2.17 floor)
         if: matrix.zigbuild
         run: cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17
+      - name: Assert glibc floor
+        if: matrix.zigbuild
+        run: |
+          max="$(objdump -T target/x86_64-unknown-linux-gnu/release/restui \
+                | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n1)"
+          [ "$max" = "GLIBC_2.17" ] || { echo "::error::max glibc symbol ref is $max, expected 2.17"; exit 1; }
+          echo "glibc floor verified: $max"
       - name: Build
         if: ${{ !matrix.zigbuild }}
         run: cargo build --release --target ${{ matrix.triple }}
       - name: Verify binary
-        run: file target/${{ matrix.triple }}/release/restui
+        run: |
+          file target/${{ matrix.triple }}/release/restui
+          file target/${{ matrix.triple }}/release/restui | grep -q "${{ matrix.expected-arch }}" \
+            || { echo "::error::unexpected architecture for ${{ matrix.triple }}"; exit 1; }
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.triple }}
@@ -921,24 +991,29 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: aarch64-apple-darwin
           path: artifacts/aarch64-apple-darwin
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: x86_64-apple-darwin
           path: artifacts/x86_64-apple-darwin
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: x86_64-unknown-linux-gnu
           path: artifacts/x86_64-unknown-linux-gnu
+      - name: Stage package tests
+        run: node --test 'npm/scripts/*.test.mjs'
       - name: Stage packages
         run: node npm/scripts/stage.mjs --binaries-dir artifacts
       - name: Publish (platforms first, main last, skip existing)

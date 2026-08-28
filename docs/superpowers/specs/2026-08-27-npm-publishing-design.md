@@ -102,9 +102,14 @@ reqwest = { version = "0.12", features = ["blocking", "json"] }
 
 # after
 reqwest = { version = "0.12", default-features = false, features = [
-  "blocking", "json", "rustls-tls-native-roots", "rustls-tls-webpki-roots",
+  "blocking", "json", "http2", "charset", "system-proxy",
+  "rustls-tls-native-roots", "rustls-tls-webpki-roots",
 ] }
 ```
+
+The `http2`, `charset`, and `system-proxy` features restore the reqwest defaults
+that `default-features = false` would otherwise disable (only `default-tls` is
+intentionally dropped); all three are cross-compile-safe.
 
 Why: default features pull `native-tls` → `openssl-sys` on Linux, the worst-case
 cross-compile story. Rustls is statically linked and builds cleanly everywhere.
@@ -131,12 +136,14 @@ Trigger: `workflow_dispatch` only. No version input — the version is read from
 ```yaml
 permissions:
   contents: read
-  id-token: write        # npm provenance (sigstore attestation)
 
 concurrency:
   group: npm-publish
   cancel-in-progress: false   # serialize accidental double-clicks
 ```
+
+The `publish` job carries its own `permissions: { contents: read, id-token: write }`
+for npm provenance — least privilege, so the build jobs never mint OIDC tokens.
 
 ### Jobs
 
@@ -144,14 +151,18 @@ concurrency:
 
 | Leg | Runner | Build |
 |---|---|---|
-| darwin-arm64 | `macos-14` | `cargo build --release --target aarch64-apple-darwin` |
-| darwin-x64 | `macos-14` | `cargo build --release --target x86_64-apple-darwin` (Apple toolchain cross-compiles mac↔mac; macos-13 x64 runners are being retired, so cross from arm64) |
+| darwin-arm64 | `macos-15` | `cargo build --release --target aarch64-apple-darwin` |
+| darwin-x64 | `macos-15` | `cargo build --release --target x86_64-apple-darwin` (Apple toolchain cross-compiles mac↔mac; the Intel macos-13 x64 runners are retired, so cross-compile from the arm64 macos-15 runner) |
 | linux-x64 | `ubuntu-latest` | `cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17` (zig via `pip install ziglang`, cargo-zigbuild via `cargo install cargo-zigbuild --locked`; glibc 2.17 floor) |
 
 Each leg: checkout → `dtolnay/rust-toolchain@stable` with the target added → cache
 (`Swatinem/rust-cache`) → build → `file` sanity check on the binary (ELF/Mach-O + arch)
-→ upload artifact (`actions/upload-artifact`, names `restui-aarch64-apple-darwin`,
-`restui-x86_64-apple-darwin`, `restui-x86_64-unknown-linux-gnu`).
+→ upload artifact (`actions/upload-artifact`, names `aarch64-apple-darwin`,
+`x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`).
+
+The Linux leg installs `ziglang` pinned to `0.14.1` via a standalone `setup-python`
+interpreter (dodging PEP 668's externally-managed system python), then asserts the
+built binary's maximum glibc symbol reference is `GLIBC_2.17` before upload.
 
 **`publish`** (needs all three build legs, `ubuntu-latest`):
 
@@ -259,5 +270,5 @@ Publishing is CI-only; local targets verify packaging without touching the regis
 | `restui-*` names squatted before first publish | Publish soon after merge; names verified free 2026-08-27 |
 | rustls behavioral edge (e.g. cert type it won't parse) | Manual checklist §9.2 before release; `--no-verify` escape hatch; cargo fallback documented |
 | glibc 2.17 floor insufficiently/overly broad | 2.17 covers CentOS 7-era to modern distros; musl users get a clear error, can request musl package later |
-| macos-14 runner defaults target newer macOS than users run | `MACOSX_DEPLOYMENT_TARGET=10.12` env (rustls's own floor) on both darwin build legs |
+| macos-15 runner defaults target newer macOS than users run | `MACOSX_DEPLOYMENT_TARGET=10.12` env (rustls's own floor) on both darwin build legs |
 | Provenance unsupported (npm < 9.5 / registry quirk) | Workflow pins Node LTS (npm ≥ 9.5); `--provenance` failure is a hard error, not silent |

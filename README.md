@@ -19,8 +19,18 @@ A terminal UI REST client for `.http` request files.
 
 ## Installation
 
+**npm** (prebuilt binaries for macOS arm64/x64 and Linux x64):
+
 ```bash
-cargo install --path .
+npm install -g restui
+# or run once without installing:
+npx restui file.http
+```
+
+**cargo** (any platform with a Rust toolchain):
+
+```bash
+cargo install --git https://github.com/will8ug/restui
 ```
 
 ## Usage
@@ -63,3 +73,8 @@ Content-Type: {{content_type}}
   "version": "0.1.0"
 }
 ```
+
+## Documentation
+
+- [TLS Troubleshooting](docs/tls.md) — Custom certificate authorities, `--no-verify`, and platform support.
+- [Releasing](docs/releasing.md) — Maintainer guide to publishing a new version to npm.

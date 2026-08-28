@@ -1,0 +1,14 @@
+{
+  "name": "restui-linux-x64-gnu",
+  "version": "0.0.0",
+  "description": "restui binary for Linux x64 (glibc)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/will8ug/restui.git",
+    "directory": "npm/restui-linux-x64-gnu"
+  },
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "files": ["bin"]
+}
