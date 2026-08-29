@@ -132,6 +132,9 @@ verified during implementation (§9).
 
 Trigger: `workflow_dispatch` only. No version input — the version is read from
 `Cargo.toml` on the dispatched ref (single source of truth; no mismatch possible).
+The workflow takes a `publish` boolean input (default true); `false` = build + stage
+only, uploading a `staged-packages` artifact for the one-time interactive bootstrap
+(npm requires a package to exist before a trusted publisher can be configured).
 
 ```yaml
 permissions:
@@ -166,9 +169,12 @@ built binary's maximum glibc symbol reference is `GLIBC_2.17` before upload.
 
 **`publish`** (needs all three build legs, `ubuntu-latest`):
 
-1. checkout, download the 3 artifacts, setup Node (LTS) + npm ≥ 9.5.
+1. checkout, download the 3 artifacts, setup Node 24 + npm ≥ 11.5.1.
 2. `node npm/scripts/stage.mjs` → `target/npm/` with version stamped.
-3. Authenticate with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`.
+3. Authenticate via npm trusted publishing (OIDC) — the publish job carries
+   `id-token: write`, Node 24 (npm ≥ 11.5.1), no stored tokens;
+   `npm publish --access public --provenance` exchanges the GitHub OIDC token
+   automatically.
 4. For each **platform package**, then the **main package last**:
    - `npm view <name>@<version>` — if it already exists, **skip** (resume-safe: a re-run
      after a half-failed publish fills only the gaps; also guards double-clicks).
@@ -225,7 +231,7 @@ Publishing is CI-only; local targets verify packaging without touching the regis
 | Platform package missing (`--omit=optional`) | Shim exits 1 explaining why + fix |
 | Binary spawn failure | Shim exits 1 with the child error |
 | Child exit/signal | Propagated verbatim to parent |
-| `NPM_TOKEN` invalid/expired | `npm publish` fails; skip-checks mean a re-run after fixing the secret resumes cleanly |
+| OIDC/trusted-publisher mismatch (wrong workflow filename/repo in npm trust config) | `npm publish` fails with ENEEDAUTH pointing at the trusted-publishers docs; fix the `npm trust` config and re-run — skip-checks resume cleanly |
 | Workflow double-dispatch | `concurrency` serializes; second run finds versions published and skips/errors per §6 |
 | Stale half-published release | Re-run publishes only missing packages |
 | Custom TLS CA / musl / Windows users | README troubleshooting section: system-store trust works as today; `--no-verify` escape hatch; `cargo install` fallback |
@@ -249,10 +255,14 @@ Publishing is CI-only; local targets verify packaging without touching the regis
 ## 10. One-time setup checklist
 
 1. npm account; `npm whoami` locally to confirm.
-2. Granular access token: **Read and write**, restricted to packages `restui`,
-   `restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu` (create after
-   first publish if package-scoped restriction is awkward on day zero — temporarily
-   all-packages, then narrow). Store as repo secret `NPM_TOKEN`.
+2. Bootstrap the four packages (npm requires a package to exist before a trusted
+   publisher can be configured): dispatch the workflow with `publish` unchecked
+   (build + stage only), download the `staged-packages` artifact, publish `0.1.0`
+   interactively from your machine (platforms first, main last), then register the
+   trusted publisher on each package:
+   `npm trust github <pkg> --file npm-publish.yml --repository will8ug/restui --allow-publish`
+   ×4. Optionally harden each package with "require 2FA and disallow tokens"
+   (trusted publishing keeps working). Full runbook: `docs/releasing.md`.
 3. First release: `0.1.0` (current `Cargo.toml`) or an immediate bump — owner's choice.
 
 ## 11. Out of scope
@@ -271,4 +281,4 @@ Publishing is CI-only; local targets verify packaging without touching the regis
 | rustls behavioral edge (e.g. cert type it won't parse) | Manual checklist §9.2 before release; `--no-verify` escape hatch; cargo fallback documented |
 | glibc 2.17 floor insufficiently/overly broad | 2.17 covers CentOS 7-era to modern distros; musl users get a clear error, can request musl package later |
 | macos-15 runner defaults target newer macOS than users run | `MACOSX_DEPLOYMENT_TARGET=10.12` env (rustls's own floor) on both darwin build legs |
-| Provenance unsupported (npm < 9.5 / registry quirk) | Workflow pins Node LTS (npm ≥ 9.5); `--provenance` failure is a hard error, not silent |
+| Provenance unsupported (registry quirk) | Workflow pins Node 24 (npm ≥ 11.5.1); `--provenance` failure is a hard error, not silent |

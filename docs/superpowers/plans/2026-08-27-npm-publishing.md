@@ -1285,3 +1285,15 @@ Verify `docs/releasing.md` (created in Task 7) covers these, then perform them:
   Package names identical in templates, shim map, and publish loop.
 - **Placeholders:** none; every code step contains complete code, every run step has
   expected output.
+
+---
+
+## Addendum (2026-08-29): trusted publishing migration
+
+npm's 2FA enforcement (EOTP on token publishes; 2FA-bypass GATs lose direct publish by
+Jan 2027) made the NPM_TOKEN design unworkable. The workflow now authenticates via npm
+trusted publishing (OIDC): publish job on Node 24 (npm ≥ 11.5.1), `id-token: write`, no
+stored secrets. A `publish` workflow_dispatch input (default true) gates the publish
+step; `false` uploads a `staged-packages` artifact instead, used for the one-time
+interactive bootstrap of the four packages (npm requires a package to exist before
+configuring its trusted publisher). Runbook: `docs/releasing.md`. Design: spec §4/§10.

@@ -2,6 +2,11 @@ name: npm-publish
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to npm via trusted publishing (OIDC). false = build and stage only (bootstrap mode).'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -75,12 +80,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
+      id-token: write # npm trusted publishing (OIDC) + provenance
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
       - uses: actions/download-artifact@v7
         with:
@@ -99,8 +104,7 @@ jobs:
       - name: Stage packages
         run: node npm/scripts/stage.mjs --binaries-dir artifacts
       - name: Publish (platforms first, main last, skip existing)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./target/npm/restui/package.json').version")
@@ -121,3 +125,11 @@ jobs:
             exit 1
           fi
           echo "Done: published $published package(s) at $VERSION"
+
+      - name: Upload staged packages (bootstrap mode)
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-packages
+          path: target/npm/
+          if-no-files-found: error
