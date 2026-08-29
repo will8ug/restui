@@ -24,6 +24,10 @@ work locally and about 10 minutes:
    cd <unzipped>/restui               && npm publish --access public
    ```
 
+> **Prerequisite:** `npm trust` requires local npm ≥ 11.15.0 — check `npm -v` and upgrade
+> with `npm install -g npm@latest` if older. (The interactive publishes in step 2 work on
+> any npm; only the trust commands need the newer CLI.)
+
 3. **Configure the trusted publisher** on each of the four packages (also 2FA):
 
    ```bash
@@ -34,6 +38,8 @@ work locally and about 10 minutes:
 
    (Equivalent web UI: npmjs.com → package → Settings → Trusted publishing → GitHub
    Actions → org `will8ug`, repo `restui`, workflow `npm-publish.yml`, allow publish.)
+   Each `npm trust` call prompts for 2FA; after the first one, npm skips the prompt for
+   five minutes, so the loop is a single OTP entry in practice.
 4. **Harden (recommended by npm)**: on each package's Settings → Publishing access,
    select "Require two-factor authentication and disallow tokens". Trusted publishing
    keeps working — only token-based access is disabled.

@@ -26,7 +26,7 @@ scripts. No build-from-source. `cargo install --path .` remains a supported inst
 | Release trigger | GitHub Actions `workflow_dispatch` (manual "Run workflow" click) |
 | Version source of truth | `Cargo.toml` `[package] version` — stamped into all npm packages at publish time |
 | TLS backend | rustls with `rustls-tls-native-roots` + `rustls-tls-webpki-roots` (see §3) |
-| Local publishing | Not supported — verification targets only (§7) |
+| Local publishing | Not supported (sole exception: one-time bootstrap, §10) |
 
 ## 1. Package architecture
 
@@ -145,8 +145,9 @@ concurrency:
   cancel-in-progress: false   # serialize accidental double-clicks
 ```
 
-The `publish` job carries its own `permissions: { contents: read, id-token: write }`
-for npm provenance — least privilege, so the build jobs never mint OIDC tokens.
+The `publish` job carries its own `permissions: { contents: read, id-token: write }`;
+`id-token: write` is the trusted-publishing (OIDC) authentication credential and also
+generates provenance — least privilege, so the build jobs never mint OIDC tokens.
 
 ### Jobs
 
@@ -210,7 +211,7 @@ Node ≥ 18, stdlib only. Idempotent (clears stale staging first).
 
 ## 7. Local verification (Makefile additions)
 
-Publishing is CI-only; local targets verify packaging without touching the registry:
+Publishing is CI-only (sole exception: the one-time interactive bootstrap, §10); local targets verify packaging without touching the registry:
 
 - `make npm-stage` — build host-target release binary → `stage.mjs --only-host` →
   staged host platform package + main in `target/npm/`.
