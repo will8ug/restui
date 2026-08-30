@@ -6,10 +6,12 @@ and Linux x64 (glibc), distributed as platform-specific optional dependencies.
 ## Install
 
 ```bash
-npm install -g restui
+npm install -g @will8ug/restui
 # or run once:
-npx restui example.http
+npx @will8ug/restui example.http
 ```
+
+(the command is `restui` — the package is scoped, the binary isn't)
 
 Rust users: `cargo install --git https://github.com/will8ug/restui`.
 

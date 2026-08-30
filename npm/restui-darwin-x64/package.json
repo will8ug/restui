@@ -1,5 +1,5 @@
 {
-  "name": "restui-darwin-x64",
+  "name": "@will8ug/restui-darwin-x64",
   "version": "0.0.0",
   "description": "restui binary for macOS x64",
   "license": "MIT",

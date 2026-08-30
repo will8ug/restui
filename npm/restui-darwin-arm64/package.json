@@ -1,5 +1,5 @@
 {
-  "name": "restui-darwin-arm64",
+  "name": "@will8ug/restui-darwin-arm64",
   "version": "0.0.0",
   "description": "restui binary for macOS arm64",
   "license": "MIT",

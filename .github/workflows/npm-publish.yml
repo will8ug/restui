@@ -108,10 +108,10 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./target/npm/restui/package.json').version")
-          packages=(restui-darwin-arm64 restui-darwin-x64 restui-linux-x64-gnu restui)
+          packages=(@will8ug/restui-darwin-arm64 @will8ug/restui-darwin-x64 @will8ug/restui-linux-x64-gnu @will8ug/restui)
           published=0
           for name in "${packages[@]}"; do
-            dir="target/npm/$name"
+            dir="target/npm/${name##*/}"
             if npm view "$name@$VERSION" --loglevel=error >/dev/null 2>&1; then
               echo "::notice::$name@$VERSION already published — skipping"
               continue

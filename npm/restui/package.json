@@ -1,5 +1,5 @@
 {
-  "name": "restui",
+  "name": "@will8ug/restui",
   "version": "0.0.0",
   "description": "A TUI REST client for .http files",
   "license": "MIT",

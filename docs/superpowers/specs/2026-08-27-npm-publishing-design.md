@@ -9,7 +9,7 @@
 Users can install restui from the npm public registry:
 
 ```bash
-npm install -g restui      # or: npx restui file.http
+npm install -g @will8ug/restui      # or: npx @will8ug/restui file.http
 ```
 
 npm delivers the correct prebuilt Rust binary for the user's platform. No postinstall
@@ -20,7 +20,7 @@ scripts. No build-from-source. `cargo install --path .` remains a supported inst
 | Decision | Choice |
 |---|---|
 | Distribution model | Main package + 3 platform packages (`optionalDependencies`, exact-pinned) |
-| npm names | `restui`, `restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu` (all verified unclaimed 2026-08-27) |
+| npm names | `@will8ug/restui`, `@will8ug/restui-darwin-arm64`, `@will8ug/restui-darwin-x64`, `@will8ug/restui-linux-x64-gnu` (bare `restui` rejected by the registry's similarity check against `rest-ui`, 2026-08-30; bin command remains `restui`) |
 | Platforms | macOS arm64, macOS x64, Linux x64 glibc |
 | glibc floor | 2.17 (via `cargo-zigbuild` target suffix, run inside the CI job) |
 | Release trigger | GitHub Actions `workflow_dispatch` (manual "Run workflow" click) |
@@ -34,10 +34,10 @@ Four packages, all published from this repo:
 
 | Package | Contents | `os` / `cpu` |
 |---|---|---|
-| `restui` | `bin/restui.js` shim, README, LICENSE | — |
-| `restui-darwin-arm64` | release binary | `darwin` / `arm64` |
-| `restui-darwin-x64` | release binary | `darwin` / `x64` |
-| `restui-linux-x64-gnu` | release binary | `linux` / `x64` |
+| `@will8ug/restui` | `bin/restui.js` shim, README, LICENSE | — |
+| `@will8ug/restui-darwin-arm64` | release binary | `darwin` / `arm64` |
+| `@will8ug/restui-darwin-x64` | release binary | `darwin` / `x64` |
+| `@will8ug/restui-linux-x64-gnu` | release binary | `linux` / `x64` |
 
 - Main package `package.json`: `"bin": { "restui": "bin/restui.js" }`, `files: ["bin"]`,
   `optionalDependencies` listing all three platform packages at the **same exact version,
@@ -249,8 +249,8 @@ Publishing is CI-only (sole exception: the one-time interactive bootstrap, §10)
      (e.g. `openssl s_server` or mitmproxy + CA in Keychain) — must succeed *without*
      `--no-verify`, proving native-roots behavior.
   3. `--no-verify` still disables verification.
-- **Post-publish smoke (first release only)**: fresh `npx restui@<version> --help` on
-  macOS arm64; `docker run --rm -it node:bookworm-slim npx -y restui@<version> --help`
+- **Post-publish smoke (first release only)**: fresh `npx @will8ug/restui@<version> --help` on
+  macOS arm64; `docker run --rm -it node:bookworm-slim npx -y @will8ug/restui@<version> --help`
   for linux-gnu.
 
 ## 10. One-time setup checklist

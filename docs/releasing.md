@@ -7,6 +7,9 @@ build time.
 
 ## One-time bootstrap (already done? skip to "Publishing a release")
 
+The packages live under the `@will8ug` scope (bin command stays `restui`); the unscoped
+`restui` name is blocked by npm's similarity check against `rest-ui`.
+
 npm only allows configuring a trusted publisher on a package that already exists, so the
 first publish of each package is manual and interactive (2FA). You need `npm whoami` to
 work locally and about 10 minutes:
@@ -31,7 +34,7 @@ work locally and about 10 minutes:
 3. **Configure the trusted publisher** on each of the four packages (also 2FA):
 
    ```bash
-   for pkg in restui restui-darwin-arm64 restui-darwin-x64 restui-linux-x64-gnu; do
+   for pkg in @will8ug/restui @will8ug/restui-darwin-arm64 @will8ug/restui-darwin-x64 @will8ug/restui-linux-x64-gnu; do
      npm trust github "$pkg" --file npm-publish.yml --repository will8ug/restui --allow-publish
    done
    ```
@@ -61,8 +64,8 @@ generated only for CI publishes); every later release does.
 ## Post-release smoke test
 
 ```bash
-npx -y restui@<version> --help
-docker run --rm -it node:bookworm-slim npx -y restui@<version> --help  # linux-gnu
+npx -y @will8ug/restui@<version> --help
+docker run --rm -it node:bookworm-slim npx -y @will8ug/restui@<version> --help  # linux-gnu
 ```
 
-Confirm the provenance badge on <https://www.npmjs.com/package/restui>.
+Confirm the provenance badge on <https://www.npmjs.com/package/@will8ug/restui>.

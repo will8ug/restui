@@ -1,5 +1,5 @@
 {
-  "name": "restui-linux-x64-gnu",
+  "name": "@will8ug/restui-linux-x64-gnu",
   "version": "0.0.0",
   "description": "restui binary for Linux x64 (glibc)",
   "license": "MIT",

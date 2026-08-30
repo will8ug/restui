@@ -7,9 +7,9 @@
 const { spawn } = require('child_process');
 
 const PACKAGES = {
-  'darwin-arm64': 'restui-darwin-arm64',
-  'darwin-x64': 'restui-darwin-x64',
-  'linux-x64': 'restui-linux-x64-gnu',
+  'darwin-arm64': '@will8ug/restui-darwin-arm64',
+  'darwin-x64': '@will8ug/restui-darwin-x64',
+  'linux-x64': '@will8ug/restui-linux-x64-gnu',
 };
 
 const CARGO_FALLBACK =

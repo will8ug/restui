@@ -17,9 +17,9 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const PACKAGES = [
-  { name: 'restui-darwin-arm64', triple: 'aarch64-apple-darwin', format: 'macho' },
-  { name: 'restui-darwin-x64', triple: 'x86_64-apple-darwin', format: 'macho' },
-  { name: 'restui-linux-x64-gnu', triple: 'x86_64-unknown-linux-gnu', format: 'elf' },
+  { name: '@will8ug/restui-darwin-arm64', dir: 'restui-darwin-arm64', triple: 'aarch64-apple-darwin', format: 'macho' },
+  { name: '@will8ug/restui-darwin-x64', dir: 'restui-darwin-x64', triple: 'x86_64-apple-darwin', format: 'macho' },
+  { name: '@will8ug/restui-linux-x64-gnu', dir: 'restui-linux-x64-gnu', triple: 'x86_64-unknown-linux-gnu', format: 'elf' },
 ];
 
 const HOST_TRIPLE = {
@@ -105,10 +105,10 @@ async function validateBinary(pkg, binariesDir) {
 }
 
 async function stagePackage(pkg, version, outDir, templatesDir) {
-  const src = path.join(templatesDir, pkg.name);
-  const dest = path.join(outDir, pkg.name);
+  const src = path.join(templatesDir, pkg.dir);
+  const dest = path.join(outDir, pkg.dir);
   const template = JSON.parse(await readFile(path.join(src, 'package.json'), 'utf8'));
-  validateTemplate(pkg.name, template);
+  validateTemplate(template.name, template);
   template.version = version;
   await mkdir(path.join(dest, 'bin'), { recursive: true });
   await writeFile(path.join(dest, 'package.json'), `${JSON.stringify(template, null, 2)}\n`);
@@ -133,11 +133,11 @@ async function main() {
   // Provenance guard: every template (platform packages and main) must carry
   // repository.url before any staging work begins.
   for (const pkg of selected) {
-    const template = JSON.parse(await readFile(path.join(args.templatesDir, pkg.name, 'package.json'), 'utf8'));
-    validateTemplate(pkg.name, template);
+    const template = JSON.parse(await readFile(path.join(args.templatesDir, pkg.dir, 'package.json'), 'utf8'));
+    validateTemplate(template.name, template);
   }
   const mainTemplate = JSON.parse(await readFile(path.join(args.templatesDir, 'restui', 'package.json'), 'utf8'));
-  validateTemplate('restui', mainTemplate);
+  validateTemplate(mainTemplate.name, mainTemplate);
 
   await rm(args.out, { recursive: true, force: true });
 

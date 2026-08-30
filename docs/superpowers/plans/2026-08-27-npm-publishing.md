@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make restui installable from the npm public registry (`npm i -g restui` / `npx restui`) via prebuilt platform packages published by a manually-triggered GitHub Actions workflow.
+**Goal:** Make restui installable from the npm public registry (`npm i -g @will8ug/restui` / `npx @will8ug/restui`) via prebuilt platform packages published by a manually-triggered GitHub Actions workflow.
 
 **Architecture:** Main `restui` npm package contains a zero-dependency Node shim that resolves and spawns the binary from one of three exact-pinned `optionalDependencies` platform packages (`restui-darwin-arm64`, `restui-darwin-x64`, `restui-linux-x64-gnu`). A `workflow_dispatch` workflow builds the three binaries (native/cross on macos-15, zigbuild on ubuntu), stages the four packages with the version stamped from `Cargo.toml` (single source of truth), and publishes platforms-first with skip-if-exists resume logic and npm provenance.
 
@@ -356,9 +356,9 @@ and Linux x64 (glibc), distributed as platform-specific optional dependencies.
 ## Install
 
 ```bash
-npm install -g restui
+npm install -g @will8ug/restui
 # or run once:
-npx restui example.http
+npx @will8ug/restui example.http
 ```
 
 Rust users: `cargo install --git https://github.com/will8ug/restui`.
@@ -1094,9 +1094,9 @@ with:
 **npm** (prebuilt binaries for macOS arm64/x64 and Linux x64):
 
 ```bash
-npm install -g restui
+npm install -g @will8ug/restui
 # or run once without installing:
-npx restui file.http
+npx @will8ug/restui file.http
 ```
 
 **cargo** (any platform with a Rust toolchain):
@@ -1199,8 +1199,8 @@ this repository's CI), which shows as a verified badge on the npm package pages.
 ## Post-release smoke test
 
 ```bash
-npx -y restui@<version> --help
-docker run --rm -it node:bookworm-slim npx -y restui@<version> --help  # linux-gnu
+npx -y @will8ug/restui@<version> --help
+docker run --rm -it node:bookworm-slim npx -y @will8ug/restui@<version> --help  # linux-gnu
 ```
 ```
 
@@ -1264,8 +1264,8 @@ Verify `docs/releasing.md` (created in Task 7) covers these, then perform them:
 2. GitHub → Actions → **npm-publish** → Run workflow (on `main`). Version comes from
    `Cargo.toml` (`0.1.0` unless bumped first).
 3. Watch the run: 3 build legs, then publish publishes 4 packages (platforms first).
-4. Smoke per `docs/releasing.md`: `npx -y restui@0.1.0 --help` locally;
-   `docker run --rm -it node:bookworm-slim npx -y restui@0.1.0 --help` for linux-gnu.
+4. Smoke per `docs/releasing.md`: `npx -y @will8ug/restui@0.1.0 --help` locally;
+   `docker run --rm -it node:bookworm-slim npx -y @will8ug/restui@0.1.0 --help` for linux-gnu.
 5. Verify provenance badge on npmjs.com/package/restui.
 
 ---
@@ -1297,3 +1297,18 @@ stored secrets. A `publish` workflow_dispatch input (default true) gates the pub
 step; `false` uploads a `staged-packages` artifact instead, used for the one-time
 interactive bootstrap of the four packages (npm requires a package to exist before
 configuring its trusted publisher). Runbook: `docs/releasing.md`. Design: spec §4/§10.
+
+---
+
+## Addendum 2 (2026-08-30): scoped package names
+
+npm rejected the bare `restui` name ("too similar to existing package rest-ui"), so all
+four packages moved to the `@will8ug` scope: `@will8ug/restui`,
+`@will8ug/restui-darwin-arm64`, `@will8ug/restui-darwin-x64`,
+`@will8ug/restui-linux-x64-gnu`. The bin command stays `restui` (bin name is
+independent of package name). Staging directories remain unscoped
+(`target/npm/restui-darwin-arm64/` etc.): `stage.mjs` PACKAGES entries carry an
+unscoped `dir` next to the scoped `name`, and the publish loop derives dirs via
+`${name##*/}`. npm pack names scoped tarballs `will8ug-restui-<version>.tgz`, which
+`test-local.mjs` computes. `--access public` (required for scoped packages) was
+already on every publish.

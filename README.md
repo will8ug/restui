@@ -22,9 +22,9 @@ A terminal UI REST client for `.http` request files.
 **npm** (prebuilt binaries for macOS arm64/x64 and Linux x64):
 
 ```bash
-npm install -g restui
+npm install -g @will8ug/restui
 # or run once without installing:
-npx restui file.http
+npx @will8ug/restui file.http
 ```
 
 **cargo** (any platform with a Rust toolchain):

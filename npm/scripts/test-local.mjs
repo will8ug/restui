@@ -18,15 +18,17 @@ const STAGE = path.join(REPO, 'npm/scripts/stage.mjs');
 const USAGE = 'Usage: node npm/scripts/test-local.mjs [--stage-only|--pack-only] [--skip-build]';
 
 const HOST = {
-  'darwin-arm64': 'restui-darwin-arm64',
-  'darwin-x64': 'restui-darwin-x64',
-  'linux-x64': 'restui-linux-x64-gnu',
+  'darwin-arm64': '@will8ug/restui-darwin-arm64',
+  'darwin-x64': '@will8ug/restui-darwin-x64',
+  'linux-x64': '@will8ug/restui-linux-x64-gnu',
 }[`${process.platform}-${process.arch}`];
 
 if (!HOST) {
   console.error(`test-local: unsupported host ${process.platform}-${process.arch}`);
   exit(1);
 }
+
+const HOST_DIR = HOST.replace(/^@[^/]+\//, '');
 
 function parseArgs(argv) {
   const flags = { stageOnly: false, packOnly: false, skipBuild: false };
@@ -84,9 +86,9 @@ async function main() {
   const tmp = await mkdtemp(path.join(tmpdir(), 'restui-e2e-'));
   try {
     const TRIPLE = {
-      'restui-darwin-arm64': 'aarch64-apple-darwin',
-      'restui-darwin-x64': 'x86_64-apple-darwin',
-      'restui-linux-x64-gnu': 'x86_64-unknown-linux-gnu',
+      '@will8ug/restui-darwin-arm64': 'aarch64-apple-darwin',
+      '@will8ug/restui-darwin-x64': 'x86_64-apple-darwin',
+      '@will8ug/restui-linux-x64-gnu': 'x86_64-unknown-linux-gnu',
     }[HOST];
     const binariesDir = path.join(tmp, 'artifacts');
     const tripleDir = path.join(binariesDir, TRIPLE);
@@ -105,9 +107,12 @@ async function main() {
 
     const tarballs = path.join(tmp, 'tarballs');
     await mkdir(tarballs, { recursive: true });
-    const packed = ['restui', HOST].map((pkg) => path.join(tarballs, `${pkg}-${version}.tgz`));
-    for (const pkg of ['restui', HOST]) {
-      run('npm', ['pack', '--pack-destination', tarballs], { cwd: path.join(outDir, pkg) });
+    // npm pack strips "@" and turns "/" into "-": @will8ug/restui packs as
+    // will8ug-restui-<version>.tgz
+    const tarball = (pkg) => pkg.replace(/^@/, '').replace('/', '-') + `-${version}.tgz`;
+    const packed = ['@will8ug/restui', HOST].map((pkg) => path.join(tarballs, tarball(pkg)));
+    for (const dir of ['restui', HOST_DIR]) {
+      run('npm', ['pack', '--pack-destination', tarballs], { cwd: path.join(outDir, dir) });
     }
     if (mode === 'pack') {
       // Self-inspect instead of leaving the tarballs around: `finally` below
@@ -129,7 +134,7 @@ async function main() {
           name: 'restui-smoke',
           private: true,
           dependencies: {
-            restui: `file:${packed[0]}`,
+            '@will8ug/restui': `file:${packed[0]}`,
             [HOST]: `file:${packed[1]}`,
           },
         },
@@ -148,7 +153,7 @@ async function main() {
       console.error(`test-local: --help through shim failed (exit ${help.status})\n${help.stdout}\n${help.stderr}`);
       throw new Error('installed restui --help did not produce the expected output');
     }
-    console.log(`\nPASS: installed restui@${version} runs --help through the shim (${HOST} tarball)`);
+    console.log(`\nPASS: installed @will8ug/restui@${version} runs --help through the shim (${HOST} tarball)`);
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }

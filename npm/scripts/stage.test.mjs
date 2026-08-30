@@ -10,9 +10,9 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const STAGE = path.join(REPO, 'npm/scripts/stage.mjs');
 const PACKAGES = [
-  { name: 'restui-darwin-arm64', triple: 'aarch64-apple-darwin', magic: [0xcf, 0xfa, 0xed, 0xfe] },
-  { name: 'restui-darwin-x64', triple: 'x86_64-apple-darwin', magic: [0xcf, 0xfa, 0xed, 0xfe] },
-  { name: 'restui-linux-x64-gnu', triple: 'x86_64-unknown-linux-gnu', magic: [0x7f, 0x45, 0x4c, 0x46] },
+  { name: '@will8ug/restui-darwin-arm64', dir: 'restui-darwin-arm64', triple: 'aarch64-apple-darwin', magic: [0xcf, 0xfa, 0xed, 0xfe] },
+  { name: '@will8ug/restui-darwin-x64', dir: 'restui-darwin-x64', triple: 'x86_64-apple-darwin', magic: [0xcf, 0xfa, 0xed, 0xfe] },
+  { name: '@will8ug/restui-linux-x64-gnu', dir: 'restui-linux-x64-gnu', triple: 'x86_64-unknown-linux-gnu', magic: [0x7f, 0x45, 0x4c, 0x46] },
 ];
 const HOST_TRIPLE = {
   'darwin-arm64': 'aarch64-apple-darwin',
@@ -58,16 +58,16 @@ test('stages all four packages with stamped version and exact optionalDependenci
     assert.equal(res.status, 0, `stderr: ${res.stderr}`);
     const version = await cargoVersion();
     for (const pkg of PACKAGES) {
-      const json = JSON.parse(await readFile(path.join(out, pkg.name, 'package.json'), 'utf8'));
+      const json = JSON.parse(await readFile(path.join(out, pkg.dir, 'package.json'), 'utf8'));
       assert.equal(json.version, version);
-      assert.ok(existsSync(path.join(out, pkg.name, 'bin', 'restui')), `${pkg.name} binary staged`);
+      assert.ok(existsSync(path.join(out, pkg.dir, 'bin', 'restui')), `${pkg.name} binary staged`);
     }
     const main = JSON.parse(await readFile(path.join(out, 'restui', 'package.json'), 'utf8'));
     assert.equal(main.version, version);
     assert.deepEqual(main.optionalDependencies, {
-      'restui-darwin-arm64': version,
-      'restui-darwin-x64': version,
-      'restui-linux-x64-gnu': version,
+      '@will8ug/restui-darwin-arm64': version,
+      '@will8ug/restui-darwin-x64': version,
+      '@will8ug/restui-linux-x64-gnu': version,
     });
     assert.ok(existsSync(path.join(out, 'restui', 'bin', 'restui.js')), 'shim staged');
   });
@@ -83,9 +83,9 @@ test('--only-host stages host platform package and main with a single optional d
     assert.equal(res.status, 0, `stderr: ${res.stderr}`);
     const version = await cargoVersion();
     const hostPkg = PACKAGES.find((p) => p.triple === HOST_TRIPLE);
-    assert.ok(existsSync(path.join(out, hostPkg.name, 'bin', 'restui')), 'host binary staged');
+    assert.ok(existsSync(path.join(out, hostPkg.dir, 'bin', 'restui')), 'host binary staged');
     for (const other of PACKAGES.filter((p) => p.triple !== HOST_TRIPLE)) {
-      assert.ok(!existsSync(path.join(out, other.name)), `${other.name} not staged`);
+      assert.ok(!existsSync(path.join(out, other.dir)), `${other.name} not staged`);
     }
     const main = JSON.parse(await readFile(path.join(out, 'restui', 'package.json'), 'utf8'));
     assert.deepEqual(main.optionalDependencies, { [hostPkg.name]: version });
@@ -152,7 +152,7 @@ test('fails when a template lacks repository.url (provenance guard)', async (t) 
     const templates = path.join(dir, 'npm');
     await cp(path.join(REPO, 'npm'), templates, { recursive: true });
     const hostPkg = PACKAGES.find((p) => p.triple === HOST_TRIPLE);
-    const tmplPath = path.join(templates, hostPkg.name, 'package.json');
+    const tmplPath = path.join(templates, hostPkg.dir, 'package.json');
     const tmpl = JSON.parse(await readFile(tmplPath, 'utf8'));
     delete tmpl.repository;
     await writeFile(tmplPath, `${JSON.stringify(tmpl, null, 2)}\n`);
