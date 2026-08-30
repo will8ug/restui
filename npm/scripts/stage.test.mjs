@@ -60,6 +60,7 @@ test('stages all four packages with stamped version and exact optionalDependenci
     for (const pkg of PACKAGES) {
       const json = JSON.parse(await readFile(path.join(out, pkg.dir, 'package.json'), 'utf8'));
       assert.equal(json.version, version);
+      assert.equal(json.name, pkg.name);
       assert.ok(existsSync(path.join(out, pkg.dir, 'bin', 'restui')), `${pkg.name} binary staged`);
     }
     const main = JSON.parse(await readFile(path.join(out, 'restui', 'package.json'), 'utf8'));

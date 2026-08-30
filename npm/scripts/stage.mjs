@@ -108,6 +108,7 @@ async function stagePackage(pkg, version, outDir, templatesDir) {
   const src = path.join(templatesDir, pkg.dir);
   const dest = path.join(outDir, pkg.dir);
   const template = JSON.parse(await readFile(path.join(src, 'package.json'), 'utf8'));
+  if (template.name !== pkg.name) die(`template name mismatch in ${pkg.dir}: expected ${pkg.name}, found ${template.name}`);
   validateTemplate(template.name, template);
   template.version = version;
   await mkdir(path.join(dest, 'bin'), { recursive: true });
@@ -137,6 +138,7 @@ async function main() {
     validateTemplate(template.name, template);
   }
   const mainTemplate = JSON.parse(await readFile(path.join(args.templatesDir, 'restui', 'package.json'), 'utf8'));
+  if (mainTemplate.name !== '@will8ug/restui') die(`main template name is ${mainTemplate.name}, expected @will8ug/restui`);
   validateTemplate(mainTemplate.name, mainTemplate);
 
   await rm(args.out, { recursive: true, force: true });
