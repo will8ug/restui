@@ -78,8 +78,8 @@ struct Resolver<'a> {
 }
 
 impl<'a> Resolver<'a> {
-    // Scans input once, replacing every {{name}} with the variable's fully
-    // resolved value (recursively resolving references inside values).
+    // Replaces each {{name}} with the variable's fully resolved value
+    // (recursively resolving references inside values).
     fn substitute(&mut self, input: &'a str, field: &str) -> Result<String, VarError> {
         self.substitute_in(input, field, &mut Vec::new())
     }
@@ -415,6 +415,25 @@ mod tests {
         let variables = vec![variable("used", "https://ok"), variable("junk", "{{nope}}")];
         let resolved = resolve(&variables, &request("{{used}}/x")).unwrap();
         assert_eq!(resolved.url, "https://ok/x");
+    }
+
+    #[test]
+    fn resolve_sibling_references_share_no_path() {
+        let variables = vec![variable("x", "xx")];
+        let resolved = resolve(&variables, &request("{{x}}{{x}}")).unwrap();
+        assert_eq!(resolved.url, "xxxx");
+    }
+
+    #[test]
+    fn resolve_diamond_references_do_not_false_cycle() {
+        let variables = vec![
+            variable("a", "{{b}}{{c}}"),
+            variable("b", "{{d}}"),
+            variable("c", "{{d}}"),
+            variable("d", "x"),
+        ];
+        let resolved = resolve(&variables, &request("{{a}}")).unwrap();
+        assert_eq!(resolved.url, "xx");
     }
 
     #[test]
