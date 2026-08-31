@@ -39,24 +39,37 @@ const MAGIC = {
 
 const MIN_BINARY_BYTES = 1024 * 1024;
 
+const GITHUB_BLOB_BASE = 'https://github.com/will8ug/restui/blob/main/';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/will8ug/restui/main/';
+
 function parseArgs(argv) {
   const args = {
     onlyHost: false,
     binariesDir: path.join(REPO, 'artifacts'),
     out: path.join(REPO, 'target/npm'),
     templatesDir: path.join(REPO, 'npm'),
+    readme: path.join(REPO, 'README.md'),
   };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--only-host') args.onlyHost = true;
     else if (argv[i] === '--binaries-dir') args.binariesDir = argv[++i];
     else if (argv[i] === '--out') args.out = argv[++i];
     else if (argv[i] === '--templates-dir') args.templatesDir = argv[++i];
+    else if (argv[i] === '--readme') args.readme = argv[++i];
     else {
       console.error(`stage: unknown argument ${argv[i]}`);
       exit(2);
     }
   }
   return args;
+}
+
+function absolutizeReadmeLinks(markdown) {
+  return markdown.replace(/(!?)\[([^\]]*)\]\(([^)\s]+)\)/g, (match, bang, text, target) => {
+    if (/^(https?:|mailto:|#|\/)/.test(target)) return match;
+    const base = bang ? GITHUB_RAW_BASE : GITHUB_BLOB_BASE;
+    return `${bang}[${text}](${base}${target})`;
+  });
 }
 
 function die(message) {
@@ -160,7 +173,8 @@ async function main() {
   );
   await mkdir(path.join(mainDest, 'bin'), { recursive: true });
   await writeFile(path.join(mainDest, 'package.json'), `${JSON.stringify(mainTemplate, null, 2)}\n`);
-  await copyFile(path.join(mainSrc, 'README.md'), path.join(mainDest, 'README.md'));
+  const readme = absolutizeReadmeLinks(await readFile(args.readme, 'utf8'));
+  await writeFile(path.join(mainDest, 'README.md'), readme);
   await copyFile(path.join(mainSrc, 'LICENSE'), path.join(mainDest, 'LICENSE'));
   await copyFile(path.join(mainSrc, 'bin/restui.js'), path.join(mainDest, 'bin/restui.js'));
   console.log(`staged restui@${version} (main, optionals: ${selected.map((p) => p.name).join(', ')})`);

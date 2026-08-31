@@ -166,3 +166,53 @@ test('fails when a template lacks repository.url (provenance guard)', async (t) 
     assert.match(res.stderr, new RegExp(hostPkg.name));
   });
 });
+
+test('main package README is generated from the repo README with absolute links', async () => {
+  await withTemp(async (dir) => {
+    const binaries = path.join(dir, 'artifacts');
+    const out = path.join(dir, 'out');
+    await makeFakeBinaries(binaries);
+    const res = runStage(['--binaries-dir', binaries, '--out', out]);
+    assert.equal(res.status, 0, `stderr: ${res.stderr}`);
+    const readme = await readFile(path.join(out, 'restui', 'README.md'), 'utf8');
+    const source = await readFile(path.join(REPO, 'README.md'), 'utf8');
+    for (const [, bang, target] of source.matchAll(/(!?)\[(?:[^\]]*)\]\(([^)\s]+)\)/g)) {
+      if (/^(https?:|mailto:|#|\/)/.test(target)) continue;
+      const base = bang ? 'https://raw.githubusercontent.com/will8ug/restui/main/' : 'https://github.com/will8ug/restui/blob/main/';
+      assert.ok(readme.includes(`](${base}${target})`), `missing absolutized link for ${target}`);
+    }
+    assert.ok(!/\]\((docs|assets)\//.test(readme), 'relative docs/assets links must not remain');
+  });
+});
+
+test('README transform rewrites only relative links', async () => {
+  await withTemp(async (dir) => {
+    const readmePath = path.join(dir, 'README.md');
+    await writeFile(
+      readmePath,
+      [
+        '# t',
+        '',
+        '![shot](assets/shot.png)',
+        '[docs](docs/tls.md)',
+        '[anchor](#section)',
+        '[web](https://example.com/x)',
+        '[mail](mailto:a@b.c)',
+        '[abs](/absolute/path)',
+        '',
+      ].join('\n')
+    );
+    const binaries = path.join(dir, 'artifacts');
+    const out = path.join(dir, 'out');
+    await makeFakeBinaries(binaries);
+    const res = runStage(['--binaries-dir', binaries, '--out', out, '--readme', readmePath]);
+    assert.equal(res.status, 0, `stderr: ${res.stderr}`);
+    const readme = await readFile(path.join(out, 'restui', 'README.md'), 'utf8');
+    assert.ok(readme.includes('![shot](https://raw.githubusercontent.com/will8ug/restui/main/assets/shot.png)'));
+    assert.ok(readme.includes('[docs](https://github.com/will8ug/restui/blob/main/docs/tls.md)'));
+    assert.ok(readme.includes('[anchor](#section)'));
+    assert.ok(readme.includes('[web](https://example.com/x)'));
+    assert.ok(readme.includes('[mail](mailto:a@b.c)'));
+    assert.ok(readme.includes('[abs](/absolute/path)'));
+  });
+});
