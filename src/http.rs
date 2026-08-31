@@ -1,9 +1,21 @@
 use crate::parser::Method;
 use crate::vars::ResolvedRequest;
 use reqwest::header::CONTENT_TYPE;
+use std::error::Error;
 use std::fmt;
 use std::time::Duration;
 use std::time::Instant;
+
+fn format_error_chain(error: &dyn Error) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(current) = source {
+        message.push_str(": ");
+        message.push_str(&current.to_string());
+        source = current.source();
+    }
+    message
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AppResponse {
@@ -53,7 +65,7 @@ pub fn send_request(
 
     let started_at = Instant::now();
     let response = builder.send().map_err(|error| HttpError {
-        message: format!("request failed: {error}"),
+        message: format!("request failed: {}", format_error_chain(&error)),
     })?;
     let duration = started_at.elapsed();
 
@@ -75,7 +87,10 @@ pub fn send_request(
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
     let body = response.text().map_err(|error| HttpError {
-        message: format!("failed to read response body: {error}"),
+        message: format!(
+            "failed to read response body: {}",
+            format_error_chain(&error)
+        ),
     })?;
     let size_bytes = body.len();
 
@@ -343,7 +358,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn send_connection_error() {
+    async fn send_connection_error_includes_source_chain() {
         let error = send_via_blocking_client(resolved_request(
             Method::Get,
             "not a valid url".to_string(),
@@ -354,6 +369,8 @@ mod tests {
         .unwrap_err();
 
         assert!(error.message.contains("request failed"));
+        assert!(error.message.contains("builder error"));
+        assert!(error.message.contains("relative URL"));
     }
 
     #[tokio::test]
