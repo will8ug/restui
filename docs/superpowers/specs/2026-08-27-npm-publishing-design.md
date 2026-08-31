@@ -34,7 +34,7 @@ Four packages, all published from this repo:
 
 | Package | Contents | `os` / `cpu` |
 |---|---|---|
-| `@will8ug/restui` | `bin/restui.js` shim, README, LICENSE | — |
+| `@will8ug/restui` | JS bin shim, README (generated from repo README at stage time), LICENSE | — |
 | `@will8ug/restui-darwin-arm64` | release binary | `darwin` / `arm64` |
 | `@will8ug/restui-darwin-x64` | release binary | `darwin` / `x64` |
 | `@will8ug/restui-linux-x64-gnu` | release binary | `linux` / `x64` |
@@ -71,7 +71,6 @@ npm/
   scripts/stage.mjs                       # Node ≥18: stamps versions, stages packages
   restui/package.json                     # main template (version 0.0.0 placeholder)
   restui/bin/restui.js                    # the shim
-  restui/README.md                        # user-facing: install, usage, troubleshooting
   restui/LICENSE                          # copy of repo LICENSE
   restui-darwin-arm64/package.json
   restui-darwin-x64/package.json
@@ -80,6 +79,10 @@ npm/
   restui-darwin-x64/README.md
   restui-linux-x64-gnu/README.md
 ```
+
+The main package's README is not a template — `stage.mjs` derives it from the repo
+`README.md`, rewriting relative links/images to absolute GitHub URLs (raw for images)
+so they render on npmjs.com.
 
 Staging destination: `target/npm/<pkg>/` (inside `/target/`, already gitignored).
 

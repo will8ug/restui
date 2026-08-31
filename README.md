@@ -27,6 +27,8 @@ npm install -g @will8ug/restui
 npx @will8ug/restui file.http
 ```
 
+The npm-installed shim requires Node 14+; cargo installs have no Node requirement.
+
 **cargo** (any platform with a Rust toolchain):
 
 ```bash
