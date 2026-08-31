@@ -97,8 +97,13 @@ fn test_undefined_variable_error_propagation() {
     let error = vars::resolve(&parsed.variables, &parsed.requests[0])
         .expect_err("undefined variable should fail resolution");
 
-    assert_eq!(error.variable_name, "host");
-    assert_eq!(error.field, "url");
+    assert_eq!(
+        error,
+        vars::VarError::Undefined {
+            variable_name: "host".to_string(),
+            field: "url".to_string()
+        }
+    );
 }
 
 #[test]

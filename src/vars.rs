@@ -11,18 +11,25 @@ pub struct ResolvedRequest {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct VarError {
-    pub variable_name: String,
-    pub field: String,
+pub enum VarError {
+    Undefined {
+        variable_name: String,
+        field: String,
+    },
+    Circular {
+        chain: String,
+    },
 }
 
 impl fmt::Display for VarError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Undefined variable '{}' in {}",
-            self.variable_name, self.field
-        )
+        match self {
+            VarError::Undefined {
+                variable_name,
+                field,
+            } => write!(f, "Undefined variable '{variable_name}' in {field}"),
+            VarError::Circular { chain } => write!(f, "Circular variable reference: {chain}"),
+        }
     }
 }
 
@@ -35,21 +42,26 @@ pub fn resolve(
         .map(|variable| (variable.name.as_str(), variable.value.as_str()))
         .collect();
 
-    let url = resolve_field(&request.url, &values, "url")?;
+    let mut resolver = Resolver {
+        values,
+        resolved: HashMap::new(),
+    };
+
+    let url = resolver.substitute(&request.url, "url")?;
     let headers = request
         .headers
         .iter()
         .map(|(name, value)| {
             Ok((
-                resolve_field(name, &values, "header")?,
-                resolve_field(value, &values, "header")?,
+                resolver.substitute(name, "header")?,
+                resolver.substitute(value, "header")?,
             ))
         })
         .collect::<Result<Vec<_>, VarError>>()?;
     let body = request
         .body
         .as_deref()
-        .map(|value| resolve_field(value, &values, "body"))
+        .map(|value| resolver.substitute(value, "body"))
         .transpose()?;
 
     Ok(ResolvedRequest {
@@ -60,37 +72,83 @@ pub fn resolve(
     })
 }
 
-fn resolve_field(
-    input: &str,
-    variables: &HashMap<&str, &str>,
-    field: &str,
-) -> Result<String, VarError> {
-    let mut result = String::with_capacity(input.len());
-    let mut cursor = 0;
+struct Resolver<'a> {
+    values: HashMap<&'a str, &'a str>,
+    resolved: HashMap<&'a str, String>,
+}
 
-    while let Some(open_offset) = input[cursor..].find("{{") {
-        let open_index = cursor + open_offset;
-        result.push_str(&input[cursor..open_index]);
-
-        let name_start = open_index + 2;
-        if let Some(close_offset) = input[name_start..].find("}}") {
-            let close_index = name_start + close_offset;
-            let variable_name = &input[name_start..close_index];
-            let value = variables.get(variable_name).ok_or_else(|| VarError {
-                variable_name: variable_name.to_string(),
-                field: field.to_string(),
-            })?;
-
-            result.push_str(value);
-            cursor = close_index + 2;
-        } else {
-            result.push_str(&input[open_index..]);
-            return Ok(result);
-        }
+impl<'a> Resolver<'a> {
+    // Scans input once, replacing every {{name}} with the variable's fully
+    // resolved value (recursively resolving references inside values).
+    fn substitute(&mut self, input: &'a str, field: &str) -> Result<String, VarError> {
+        self.substitute_in(input, field, &mut Vec::new())
     }
 
-    result.push_str(&input[cursor..]);
-    Ok(result)
+    fn substitute_in(
+        &mut self,
+        input: &'a str,
+        field: &str,
+        path: &mut Vec<&'a str>,
+    ) -> Result<String, VarError> {
+        let mut result = String::with_capacity(input.len());
+        let mut cursor = 0;
+
+        while let Some(open_offset) = input[cursor..].find("{{") {
+            let open_index = cursor + open_offset;
+            result.push_str(&input[cursor..open_index]);
+
+            let name_start = open_index + 2;
+            if let Some(close_offset) = input[name_start..].find("}}") {
+                let close_index = name_start + close_offset;
+                let variable_name = &input[name_start..close_index];
+                let value = self.resolve_variable(variable_name, field, path)?;
+                result.push_str(&value);
+                cursor = close_index + 2;
+            } else {
+                result.push_str(&input[open_index..]);
+                return Ok(result);
+            }
+        }
+
+        result.push_str(&input[cursor..]);
+        Ok(result)
+    }
+
+    // Resolves one variable to its final value; memoized. `path` holds the
+    // reference chain currently being resolved, so a revisit is a cycle.
+    // It must thread through substitute_in — a fresh path per level would
+    // miss self-references and recurse until the stack overflows.
+    fn resolve_variable(
+        &mut self,
+        name: &'a str,
+        field: &str,
+        path: &mut Vec<&'a str>,
+    ) -> Result<String, VarError> {
+        if let Some(done) = self.resolved.get(name) {
+            return Ok(done.clone());
+        }
+        let raw = match self.values.get(name) {
+            Some(raw) => *raw,
+            None => {
+                return Err(VarError::Undefined {
+                    variable_name: name.to_string(),
+                    field: field.to_string(),
+                });
+            }
+        };
+        if path.contains(&name) {
+            let mut chain: Vec<String> = path.iter().map(|n| n.to_string()).collect();
+            chain.push(name.to_string());
+            return Err(VarError::Circular {
+                chain: chain.join(" → "),
+            });
+        }
+        path.push(name);
+        let value = self.substitute_in(raw, field, path)?;
+        path.pop();
+        self.resolved.insert(name, value.clone());
+        Ok(value)
+    }
 }
 
 #[cfg(test)]
@@ -195,7 +253,7 @@ mod tests {
 
         assert_eq!(
             error,
-            VarError {
+            VarError::Undefined {
                 variable_name: "unknown".to_string(),
                 field: "url".to_string(),
             }
@@ -208,7 +266,13 @@ mod tests {
 
         let error = resolve(&[], &request).unwrap_err();
 
-        assert_eq!(error.field, "url");
+        assert_eq!(
+            error,
+            VarError::Undefined {
+                variable_name: "missing".to_string(),
+                field: "url".to_string()
+            }
+        );
     }
 
     #[test]
@@ -218,7 +282,13 @@ mod tests {
 
         let error = resolve(&[], &request).unwrap_err();
 
-        assert_eq!(error.field, "header");
+        assert_eq!(
+            error,
+            VarError::Undefined {
+                variable_name: "missing".to_string(),
+                field: "header".to_string()
+            }
+        );
     }
 
     #[test]
@@ -228,7 +298,13 @@ mod tests {
 
         let error = resolve(&[], &request).unwrap_err();
 
-        assert_eq!(error.field, "body");
+        assert_eq!(
+            error,
+            VarError::Undefined {
+                variable_name: "missing".to_string(),
+                field: "body".to_string()
+            }
+        );
     }
 
     #[test]
@@ -256,12 +332,89 @@ mod tests {
     }
 
     #[test]
-    fn resolve_var_value_with_braces_not_recursive() {
-        let request = request("{{outer}}/path");
+    fn resolve_transitive_variable_chain() {
+        let variables = vec![
+            variable("prdIngress", "prod.ingress.domain.name"),
+            variable("remoteServer", "https://{{prdIngress}}/context-path"),
+            variable("baseUrl", "{{remoteServer}}"),
+        ];
+        let resolved = resolve(&variables, &request("{{baseUrl}}/ping")).unwrap();
+        assert_eq!(
+            resolved.url,
+            "https://prod.ingress.domain.name/context-path/ping"
+        );
+    }
 
-        let resolved = resolve(&[variable("outer", "{{other}}")], &request).unwrap();
+    #[test]
+    fn resolve_transitive_variables_in_headers_and_body() {
+        let variables = vec![
+            variable("host", "api.internal"),
+            variable("origin", "https://{{host}}"),
+        ];
+        let mut req = request("{{origin}}/v1");
+        req.headers = vec![("X-Base".to_string(), "{{origin}}/v1".to_string())];
+        req.body = Some("server={{origin}}".to_string());
+        let resolved = resolve(&variables, &req).unwrap();
+        assert_eq!(resolved.url, "https://api.internal/v1");
+        assert_eq!(resolved.headers[0].1, "https://api.internal/v1");
+        assert_eq!(
+            resolved.body.as_deref(),
+            Some("server=https://api.internal")
+        );
+    }
 
-        assert_eq!(resolved.url, "{{other}}/path");
+    #[test]
+    fn resolve_same_transitive_variable_reused_across_fields() {
+        let variables = vec![
+            variable("host", "api.internal"),
+            variable("origin", "https://{{host}}"),
+        ];
+        let mut req = request("{{origin}}/a");
+        req.headers = vec![("X-Base".to_string(), "{{origin}}".to_string())];
+        let resolved = resolve(&variables, &req).unwrap();
+        assert_eq!(resolved.url, "https://api.internal/a");
+        assert_eq!(resolved.headers[0].1, "https://api.internal");
+    }
+
+    #[test]
+    fn resolve_circular_variable_references_error() {
+        let variables = vec![variable("a", "{{b}}/x"), variable("b", "{{a}}/y")];
+        let error = resolve(&variables, &request("{{a}}/ping")).unwrap_err();
+        match error {
+            VarError::Circular { chain } => {
+                assert!(chain.contains('a') && chain.contains('b'), "chain: {chain}");
+            }
+            other => panic!("expected circular reference error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn resolve_self_referencing_variable_errors() {
+        let error = resolve(&[variable("a", "{{a}}")], &request("{{a}}/x")).unwrap_err();
+        assert!(matches!(error, VarError::Circular { .. }));
+    }
+
+    #[test]
+    fn resolve_undefined_inside_variable_value_errors() {
+        let error = resolve(
+            &[variable("outer", "{{missing}}")],
+            &request("{{outer}}/path"),
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            VarError::Undefined {
+                variable_name: "missing".to_string(),
+                field: "url".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn resolve_unused_variable_with_unknown_reference_ok() {
+        let variables = vec![variable("used", "https://ok"), variable("junk", "{{nope}}")];
+        let resolved = resolve(&variables, &request("{{used}}/x")).unwrap();
+        assert_eq!(resolved.url, "https://ok/x");
     }
 
     #[test]
@@ -281,7 +434,13 @@ mod tests {
 
         let error = resolve(&[variable("host", "https://api.com")], &request).unwrap_err();
 
-        assert_eq!(error.variable_name, "Host");
+        assert_eq!(
+            error,
+            VarError::Undefined {
+                variable_name: "Host".to_string(),
+                field: "url".to_string()
+            }
+        );
     }
 
     #[test]

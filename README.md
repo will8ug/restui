@@ -10,7 +10,7 @@ A terminal UI REST client for `.http` request files.
 ## Features
 
 - Parse REST Client-style `.http` files with multiple named requests
-- Resolve `{{variables}}` in URLs, headers, and bodies
+- Resolve `{{variables}}` in URLs, headers, and bodies, including chained variables (`@a = {{b}}`)
 - Send requests from a keyboard-driven terminal interface
 - Inspect formatted responses, headers, timing, and size metadata
 - Reload request files without restarting the app
