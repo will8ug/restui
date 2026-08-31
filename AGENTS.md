@@ -2,6 +2,10 @@
 
 Guidance for coding agents (and humans) working in this repository.
 
+## Versioning
+
+Never bump the version in `Cargo.toml` unless explicitly asked. Releases are cut manually by the maintainer: implement, verify, and leave the version untouched.
+
 ## Comments
 
 Prefer self-documenting code over comments. Only add comments for knowledge that cannot be expressed in the code itself.

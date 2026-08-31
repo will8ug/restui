@@ -4,7 +4,7 @@
 
 **Goal:** The npm package README is derived from the repo README at staging time (single source), with relative links/images rewritten to absolute GitHub URLs so they work on npmjs.com.
 
-**Architecture:** Delete the hand-maintained `npm/restui/README.md` template. `stage.mjs` reads the repo `README.md` (new optional `--readme` flag, default repo root), applies `absolutizeReadmeLinks` (images → `raw.githubusercontent.com`, other relative links → `github.com/blob/main`, absolute/anchor/mailto untouched), and writes the result into the staged main package. The npm-only "Node 14+" note moves into the repo README. Ships as 0.1.2.
+**Architecture:** Delete the hand-maintained `npm/restui/README.md` template. `stage.mjs` reads the repo `README.md` (new optional `--readme` flag, default repo root), applies `absolutizeReadmeLinks` (images → `raw.githubusercontent.com`, other relative links → `github.com/blob/main`, absolute/anchor/mailto untouched), and writes the result into the staged main package. The npm-only "Node 14+" note moves into the repo README. Ships in 0.1.1 (consolidated with the pending transitive-variables release at maintainer request; the separate 0.1.2 bump was dropped).
 
 **Tech Stack:** Node ≥18 stdlib (stage.mjs), node:test. No new dependencies.
 
@@ -23,7 +23,7 @@ npm/scripts/stage.test.mjs   # modify: 2 new tests
 npm/restui/README.md         # DELETE (template superseded)
 README.md                    # modify: Node 14+ note in Installation
 docs/superpowers/specs/2026-08-27-npm-publishing-design.md  # modify: §1/§2 reflect generated README
-Cargo.toml / Cargo.lock      # modify: 0.1.1 → 0.1.2
+Cargo.toml / Cargo.lock      # version stays 0.1.1 (release consolidated; no bump)
 ```
 
 ---
@@ -175,26 +175,22 @@ git commit -m "Note Node requirement and document generated npm README"
 
 ---
 
-### Task 3: Version bump 0.1.2 + full gate
+### Task 3: Full gate (no version bump — rides in 0.1.1)
 
 **Files:**
-- Modify: `Cargo.toml:3` → `"0.1.2"`
+- Cargo.toml stays at `"0.1.1"` (the original 0.1.2 bump was dropped to consolidate the release)
 
-- [ ] **Step 1: Bump + gate**
+- [ ] **Step 1: Gate**
 
 ```bash
-# edit Cargo.toml version to 0.1.2
 make lint && cargo test && make npm-test && make npm-test-local
 ```
 
-Expected: all green; e2e PASS line shows `restui@0.1.2`. Inspect `target/npm/restui/README.md` — must show absolutized links and the Node 14+ note.
+Expected: all green; e2e PASS line shows `restui@0.1.1`. Inspect `target/npm/restui/README.md` — must show absolutized links and the Node 14+ note.
 
 - [ ] **Step 2: Commit**
 
-```bash
-git add Cargo.toml Cargo.lock
-git commit -m "Bump version to 0.1.2"
-```
+Only if anything needed changing — otherwise nothing to commit for this task.
 
 - [ ] **Step 3: Post-merge human verification (documented, not automated)**
 
