@@ -7,6 +7,7 @@
 //   --out            staging directory (default: ./target/npm)
 //   --only-host      stage only the current machine's platform package + main
 //   --templates-dir  package templates root (default: ./npm)
+//   --readme         source README for the main package (default: ./README.md)
 
 import { exit } from 'node:process';
 import { access, chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -39,6 +40,7 @@ const MAGIC = {
 
 const MIN_BINARY_BYTES = 1024 * 1024;
 
+// Images must use raw.githubusercontent.com — github.com blob URLs serve HTML, which does not render as an image on npm.
 const GITHUB_BLOB_BASE = 'https://github.com/will8ug/restui/blob/main/';
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/will8ug/restui/main/';
 
