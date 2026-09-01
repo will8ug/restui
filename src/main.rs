@@ -21,7 +21,7 @@ use restui::message::{Command, Message};
 use restui::{http, parser, ui};
 
 #[derive(Parser)]
-#[command(name = "restui", about = "TUI REST Client")]
+#[command(name = "restui", about = "TUI REST Client", version)]
 struct Cli {
     /// Path to .http or .rest file
     file: std::path::PathBuf,
@@ -171,5 +171,35 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
         KeyCode::Char('q') => Some(Message::Quit),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Message::Quit),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::Parser;
+    use clap::error::ErrorKind;
+
+    fn parse_version_error(args: &[&str]) -> clap::Error {
+        match Cli::try_parse_from(args) {
+            Ok(_) => panic!("version flag should short-circuit parsing"),
+            Err(error) => error,
+        }
+    }
+
+    #[test]
+    fn test_version_long_flag() {
+        let error = parse_version_error(&["restui", "--version"]);
+
+        assert_eq!(error.kind(), ErrorKind::DisplayVersion);
+        assert!(error.to_string().contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
+    fn test_version_short_flag() {
+        let error = parse_version_error(&["restui", "-V"]);
+
+        assert_eq!(error.kind(), ErrorKind::DisplayVersion);
+        assert!(error.to_string().contains(env!("CARGO_PKG_VERSION")));
     }
 }
