@@ -41,6 +41,15 @@ cargo install --git https://github.com/will8ug/restui
 restui <file.http> [--timeout <secs>] [--no-verify]
 ```
 
+### Command-line options
+
+| Option | Description |
+| --- | --- |
+| `-h`, `--help` | Print help and exit |
+| `-V`, `--version` | Print version and exit |
+| `--timeout <secs>` | Request timeout in seconds (default: `30`) |
+| `--no-verify` | Disable SSL certificate verification |
+
 ## Keybindings
 
 | Key | Action |
