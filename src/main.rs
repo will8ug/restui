@@ -18,7 +18,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use restui::app::{App, Focus};
 use restui::message::{Command, Message};
-use restui::{http, parser, ui};
+use restui::{http, parser, tls, ui};
 
 #[derive(Parser)]
 #[command(name = "restui", about = "TUI REST Client", version)]
@@ -66,7 +66,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()))?;
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(cli.timeout))
-        .danger_accept_invalid_certs(cli.no_verify)
+        .use_preconfigured_tls(tls::client_config(cli.no_verify)?)
         .build()?;
 
     enable_raw_mode()?;

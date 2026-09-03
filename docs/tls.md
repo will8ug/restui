@@ -1,9 +1,17 @@
 # TLS Troubleshooting
 
-restui uses rustls and loads the operating system's certificate store by default
-(macOS Keychain, Linux system certificate directories), with Mozilla's root list as
-a fallback. Certificates your machine already trusts — including corporate or
-locally-installed CAs — work without any flags.
+restui delegates certificate verification to the operating system's native trust
+engine:
+
+- **macOS**: `SecTrustEvaluateWithError` (Keychain, including MDM-installed
+  configuration profiles)
+- **Linux**: system certificate directories, via rustls-native-certs and
+  openssl-probe
+- **Windows**: CryptoAPI
+
+Certificates the OS trusts, including corporate CAs installed via MDM or
+configuration profile and TLS-inspecting proxy roots, are honored without any
+flag.
 
 ## Common fixes
 
@@ -36,3 +44,10 @@ clear error — install from source instead:
 ```bash
 cargo install --git https://github.com/will8ug/restui
 ```
+
+## Linux environment variables
+
+On Linux only, `SSL_CERT_FILE` and `SSL_CERT_DIR`, if set in the environment,
+override the normal system certificate directory lookup. This can silently
+prevent restui from trusting certificates the OS would otherwise trust,
+including corporate CAs. Unset them if you hit unexpected certificate errors.

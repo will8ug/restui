@@ -9,19 +9,27 @@ license = "MIT"
 [dependencies]
 ratatui = "0.29"
 crossterm = "0.28"
-# rustls (static TLS, clean cross-compile) instead of native-tls; native roots
-# preserve system-trust-store behavior for custom CAs, webpki roots are the
-# fallback. http2/charset/system-proxy restore reqwest defaults lost to
-# default-features = false. See docs/superpowers/specs/2026-08-27-npm-publishing-design.md §3.
+# rustls (static TLS, clean cross-compile) instead of native-tls. Trust anchors
+# come from rustls-platform-verifier, which delegates chain evaluation to the OS
+# so MDM-installed roots without a trust-settings record are honored.
+# http2/charset/system-proxy restore reqwest defaults lost to
+# default-features = false.
 reqwest = { version = "0.12", default-features = false, features = [
     "blocking",
     "json",
     "http2",
     "charset",
     "system-proxy",
-    "rustls-tls-native-roots",
-    "rustls-tls-webpki-roots",
+    "rustls-tls-manual-roots",
 ] }
+# Must stay semver-compatible with reqwest's internal rustls (0.23.x) or the
+# use_preconfigured_tls downcast to Option<rustls::ClientConfig> fails silently.
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+] }
+rustls-platform-verifier = "0.7"
 serde_json = "1"
 clap = { version = "4", features = ["derive"] }
 
