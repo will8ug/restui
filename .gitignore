@@ -1,6 +1,7 @@
 ## File system
 .DS_Store
 desktop.ini
+/.agents/
 
 ## Editor
 *.swp
