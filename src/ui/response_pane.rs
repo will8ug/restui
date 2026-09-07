@@ -1,10 +1,10 @@
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use serde_json::Value;
 
-use crate::app::{App, Focus};
+use crate::app::{App, AppStatus, Focus};
 use crate::http::AppResponse;
 
 pub fn render(app: &App, frame: &mut Frame, area: Rect) {
@@ -14,21 +14,34 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
         Color::DarkGray
     };
 
+    let (title, widget) = match &app.status {
+        AppStatus::Error(message) => {
+            let text = Paragraph::new(message.as_str())
+                .style(Style::default().fg(Color::Red))
+                .wrap(Wrap { trim: false })
+                .scroll((app.scroll_offset as u16, 0));
+            ("Error", text)
+        }
+        _ => match &app.response {
+            Some(response) => {
+                let text = Paragraph::new(format_response(response))
+                    .scroll((app.scroll_offset as u16, app.scroll_offset_x as u16));
+                ("Response", text)
+            }
+            None => (
+                "Response",
+                Paragraph::new("No response yet. Select a request and press Enter.")
+                    .alignment(Alignment::Center),
+            ),
+        },
+    };
+
     let block = Block::default()
-        .title("Response")
+        .title(title)
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color));
 
-    let widget = match &app.response {
-        Some(response) => Paragraph::new(format_response(response))
-            .block(block)
-            .scroll((app.scroll_offset as u16, app.scroll_offset_x as u16)),
-        None => Paragraph::new("No response yet. Select a request and press Enter.")
-            .block(block)
-            .alignment(Alignment::Center),
-    };
-
-    frame.render_widget(widget, area);
+    frame.render_widget(widget.block(block), area);
 }
 
 fn format_response(response: &AppResponse) -> String {
@@ -179,5 +192,54 @@ mod tests {
 
         assert!(text.contains("\"user\": {"));
         assert!(text.contains("\"name\": \"alice\""));
+    }
+
+    #[test]
+    fn test_error_state_renders_full_message_wrapped() {
+        let message = concat!(
+            "request failed: error sending request for url (https://internal.example.com): ",
+            "client error (Connect): invalid peer certificate: ",
+            "Other(OtherError(\"internal.example.com certificate is not standards ",
+            "compliant\")): -67901"
+        );
+        let mut app = app_with_response(None);
+        app.status = AppStatus::Error(message.to_string());
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("Error"));
+        assert!(text.contains("-67901"));
+        assert!(text.contains("not standards compliant"));
+    }
+
+    #[test]
+    fn test_error_state_overrides_stale_response() {
+        let mut app = app_with_response(Some(sample_response("hello", Some("text/plain"))));
+        app.status = AppStatus::Error("request failed: connection reset".to_string());
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("request failed: connection reset"));
+        assert!(!text.contains("HTTP 200 OK"));
+        assert!(!text.contains("hello"));
+    }
+
+    #[test]
+    fn test_error_state_scrolls_to_reveal_later_lines() {
+        let message = format!(
+            "line one {}\nline two tail-marker-{}",
+            "x".repeat(200),
+            "OSStatus-67901"
+        );
+        let mut app = app_with_response(None);
+        app.status = AppStatus::Error(message);
+        app.scroll_offset = 5;
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("OSStatus-67901"));
     }
 }

@@ -181,6 +181,8 @@ impl App {
             }
             Message::ResponseError(error) => {
                 self.status = AppStatus::Error(error);
+                self.scroll_offset = 0;
+                self.scroll_offset_x = 0;
                 Command::None
             }
             Message::ToggleFocus => {
@@ -427,6 +429,19 @@ mod tests {
         app.update(Message::ResponseError("boom".to_string()));
 
         assert_eq!(app.status, AppStatus::Error("boom".to_string()));
+    }
+
+    #[test]
+    fn test_response_error_resets_scroll_offsets() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.scroll_offset = 4;
+        app.scroll_offset_x = 3;
+
+        app.update(Message::ResponseError("boom".to_string()));
+
+        assert_eq!(app.status, AppStatus::Error("boom".to_string()));
+        assert_eq!(app.scroll_offset, 0);
+        assert_eq!(app.scroll_offset_x, 0);
     }
 
     #[test]
