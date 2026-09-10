@@ -11,6 +11,7 @@ use crate::vars;
 pub enum AppStatus {
     Idle,
     Sending(Instant),
+    Reloaded(Instant),
     Error(String),
 }
 
@@ -75,7 +76,7 @@ impl App {
                     self.last_sent_index = self
                         .last_sent_index
                         .filter(|index| *index < self.requests.len());
-                    self.status = AppStatus::Idle;
+                    self.status = AppStatus::Reloaded(Instant::now());
                 }
                 Err(error) => {
                     self.status = AppStatus::Error(error.to_string());
@@ -578,7 +579,7 @@ mod tests {
         assert_eq!(app.requests[0].url, "{{host}}/health");
         assert_eq!(app.variables.len(), 1);
         assert_eq!(app.variables[0].name, "host");
-        assert_eq!(app.status, AppStatus::Idle);
+        assert!(matches!(app.status, AppStatus::Reloaded(_)));
 
         fs::remove_file(&file_path).expect("should remove temp request file");
     }

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -7,6 +9,8 @@ use crate::app::{App, AppStatus};
 
 const KEY_HINTS: &str =
     "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit";
+
+const RELOAD_HINT_DURATION: Duration = Duration::from_secs(3);
 
 pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     let right_text = status_text(app);
@@ -31,22 +35,32 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
 
 fn status_text(app: &App) -> String {
     match &app.status {
-        AppStatus::Idle => app
-            .response
-            .as_ref()
-            .map(|response| {
-                format!(
-                    "{}ms {}",
-                    response.duration.as_millis(),
-                    human_size(response.size_bytes)
-                )
-            })
-            .unwrap_or_default(),
+        AppStatus::Idle => idle_text(app),
         AppStatus::Sending(started_at) => {
             format!("Sending... {}ms", started_at.elapsed().as_millis())
         }
+        AppStatus::Reloaded(at) => {
+            if at.elapsed() < RELOAD_HINT_DURATION {
+                "Reloaded".to_string()
+            } else {
+                idle_text(app)
+            }
+        }
         AppStatus::Error(message) => message.clone(),
     }
+}
+
+fn idle_text(app: &App) -> String {
+    app.response
+        .as_ref()
+        .map(|response| {
+            format!(
+                "{}ms {}",
+                response.duration.as_millis(),
+                human_size(response.size_bytes)
+            )
+        })
+        .unwrap_or_default()
 }
 
 fn status_style(app: &App) -> Style {
@@ -177,5 +191,33 @@ mod tests {
             .iter()
             .any(|cell| cell.symbol().trim() == "b" && cell.fg == Color::Red);
         assert!(has_red_cell);
+    }
+
+    #[test]
+    fn test_renders_reloaded_hint() {
+        let mut app = app();
+        app.status = AppStatus::Reloaded(Instant::now());
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("Reloaded"));
+    }
+
+    #[test]
+    fn test_reloaded_hint_fades_back_to_response_info() {
+        let mut app = app();
+        app.response = Some(sample_response(1229, 120));
+        app.status = AppStatus::Reloaded(
+            Instant::now()
+                .checked_sub(RELOAD_HINT_DURATION + Duration::from_secs(1))
+                .expect("a time before now"),
+        );
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("120ms 1.2KB"));
+        assert!(!text.contains("Reloaded"));
     }
 }
