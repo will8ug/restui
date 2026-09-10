@@ -13,7 +13,7 @@ const HELP_TEXT: &str = "\
  Actions
    Enter     Send selected request
    d         Toggle request detail
-   r         Reload file from disk
+   R         Reload file from disk
 
  Application
    ?         Toggle this help

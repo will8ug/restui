@@ -61,7 +61,7 @@ restui <file.http> [--timeout <secs>] [--no-verify]
 | Enter | Send selected request |
 | Tab | Toggle focus between panes |
 | d | Toggle request detail |
-| r | Reload file from disk |
+| Shift+R | Reload file from disk |
 | ? | Toggle help |
 | q / Ctrl+C | Quit |
 

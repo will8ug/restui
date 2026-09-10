@@ -165,7 +165,7 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
         KeyCode::Right | KeyCode::Char('l') => Some(Message::ScrollRight),
         KeyCode::Enter => Some(Message::SendRequest),
         KeyCode::Tab => Some(Message::ToggleFocus),
-        KeyCode::Char('r') => Some(Message::ReloadFile),
+        KeyCode::Char('R') => Some(Message::ReloadFile),
         KeyCode::Char('d') => Some(Message::ToggleRequestDetail),
         KeyCode::Char('?') => Some(Message::ToggleHelp),
         KeyCode::Char('q') => Some(Message::Quit),
@@ -177,8 +177,12 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
 #[cfg(test)]
 mod tests {
     use super::Cli;
+    use super::key_message;
     use clap::Parser;
     use clap::error::ErrorKind;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use restui::app::Focus;
+    use restui::message::Message;
 
     fn parse_version_error(args: &[&str]) -> clap::Error {
         match Cli::try_parse_from(args) {
@@ -201,5 +205,34 @@ mod tests {
 
         assert_eq!(error.kind(), ErrorKind::DisplayVersion);
         assert!(error.to_string().contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
+    fn test_shift_r_reloads_file() {
+        let event = KeyEvent::new(KeyCode::Char('R'), KeyModifiers::SHIFT);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::ReloadFile)
+        ));
+    }
+
+    #[test]
+    fn test_shift_r_without_reported_modifier_reloads_file() {
+        // Terminals with CapsLock on deliver Char('R') without SHIFT set;
+        // the binding matches the character only, so reload still fires.
+        let event = KeyEvent::from(KeyCode::Char('R'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::ReloadFile)
+        ));
+    }
+
+    #[test]
+    fn test_lowercase_r_is_unbound() {
+        let event = KeyEvent::from(KeyCode::Char('r'));
+
+        assert!(key_message(event, Focus::RequestList, false).is_none());
     }
 }
