@@ -8,6 +8,7 @@ const HELP_TEXT: &str = "\
    ↓ / j     Move down / Scroll down
    ← / h     Scroll left
    → / l     Scroll right
+   g / G     Jump to start / end
    Tab       Toggle focus between panes
 
  Actions
@@ -85,6 +86,25 @@ mod tests {
         assert!(text.contains("Quit"));
         assert!(text.contains("Scroll left"));
         assert!(text.contains("Scroll right"));
+    }
+
+    #[test]
+    fn test_help_overlay_documents_jump_keys() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(render).unwrap();
+        let buffer = terminal.backend().buffer();
+        let text: String = (0..buffer.area().height)
+            .map(|y| {
+                (0..buffer.area().width)
+                    .map(|x| buffer[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(text.contains("g / G"));
+        assert!(text.contains("Jump to start / end"));
     }
 
     #[test]

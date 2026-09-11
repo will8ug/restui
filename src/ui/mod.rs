@@ -10,7 +10,7 @@ use ratatui::widgets::Paragraph;
 
 use crate::app::App;
 
-pub fn view(app: &App, frame: &mut Frame) {
+pub fn view(app: &mut App, frame: &mut Frame) {
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -80,7 +80,7 @@ mod tests {
         )
     }
 
-    fn render_text(app: &App) -> String {
+    fn render_text(app: &mut App) -> String {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|frame| view(app, frame)).unwrap();
@@ -99,21 +99,21 @@ mod tests {
 
     #[test]
     fn test_layout_has_title_bar() {
-        let text = render_text(&app());
+        let text = render_text(&mut app());
 
         assert!(text.contains("restui - requests.http"));
     }
 
     #[test]
     fn test_layout_has_request_list() {
-        let text = render_text(&app());
+        let text = render_text(&mut app());
 
         assert!(text.contains("Requests"));
     }
 
     #[test]
     fn test_layout_has_response_pane() {
-        let text = render_text(&app());
+        let text = render_text(&mut app());
 
         assert!(text.contains("Response"));
     }
@@ -123,7 +123,7 @@ mod tests {
         let mut app = app();
         app.show_request_detail = true;
 
-        let text = render_text(&app);
+        let text = render_text(&mut app);
 
         assert!(text.contains("Request Detail"));
         assert!(text.contains("Response"));
@@ -131,9 +131,9 @@ mod tests {
 
     #[test]
     fn test_layout_no_detail_panel_when_closed() {
-        let app = app();
+        let mut app = app();
 
-        let text = render_text(&app);
+        let text = render_text(&mut app);
 
         assert!(!text.contains("Request Detail"));
         assert!(text.contains("Response"));
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_layout_has_status_bar() {
-        let text = render_text(&app());
+        let text = render_text(&mut app());
 
         assert!(text.contains("[Enter] Send"));
         assert!(text.contains("[Tab] Focus"));
@@ -154,7 +154,7 @@ mod tests {
         let mut app = app();
         app.show_help = true;
 
-        let text = render_text(&app);
+        let text = render_text(&mut app);
 
         assert!(text.contains("Help (? or Esc to close)"));
         assert!(text.contains("Navigation"));
@@ -162,9 +162,9 @@ mod tests {
 
     #[test]
     fn test_help_overlay_hidden_by_default() {
-        let app = app();
+        let mut app = app();
 
-        let text = render_text(&app);
+        let text = render_text(&mut app);
 
         assert!(!text.contains("Help (? or Esc to close)"));
     }

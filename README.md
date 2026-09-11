@@ -58,6 +58,7 @@ restui <file.http> [--timeout <secs>] [--no-verify]
 | ↓ / j | Move selection down / Scroll down |
 | ← / h | Scroll left |
 | → / l | Scroll right |
+| g / G | Jump to start / end vertically |
 | Enter | Send selected request |
 | Tab | Toggle focus between panes |
 | d | Toggle request detail |

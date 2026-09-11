@@ -116,6 +116,8 @@ mod tests {
             list_scroll_offset_x: 0,
             detail_scroll_offset_x: 0,
             scroll_offset_x: 0,
+            response_max_scroll: 0,
+            detail_max_scroll: 0,
         }
     }
 

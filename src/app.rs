@@ -39,6 +39,8 @@ pub struct App {
     pub list_scroll_offset_x: usize,
     pub detail_scroll_offset_x: usize,
     pub scroll_offset_x: usize,
+    pub response_max_scroll: usize,
+    pub detail_max_scroll: usize,
 }
 
 impl App {
@@ -60,6 +62,8 @@ impl App {
             list_scroll_offset_x: 0,
             detail_scroll_offset_x: 0,
             scroll_offset_x: 0,
+            response_max_scroll: 0,
+            detail_max_scroll: 0,
         }
     }
 
@@ -115,6 +119,24 @@ impl App {
                 self.detail_scroll_offset_x = 0;
                 Command::None
             }
+            Message::SelectFirst
+                if self.focus == Focus::RequestList && !self.requests.is_empty() =>
+            {
+                self.selected_index = 0;
+                self.detail_scroll_offset = 0;
+                self.list_scroll_offset_x = 0;
+                self.detail_scroll_offset_x = 0;
+                Command::None
+            }
+            Message::SelectLast
+                if self.focus == Focus::RequestList && !self.requests.is_empty() =>
+            {
+                self.selected_index = self.requests.len() - 1;
+                self.detail_scroll_offset = 0;
+                self.list_scroll_offset_x = 0;
+                self.detail_scroll_offset_x = 0;
+                Command::None
+            }
             Message::ScrollUp if self.focus == Focus::RequestDetail => {
                 self.detail_scroll_offset = self.detail_scroll_offset.saturating_sub(1);
                 Command::None
@@ -129,6 +151,22 @@ impl App {
             }
             Message::ScrollDown if self.focus == Focus::ResponsePane => {
                 self.scroll_offset = self.scroll_offset.saturating_add(1);
+                Command::None
+            }
+            Message::ScrollTop if self.focus == Focus::RequestDetail => {
+                self.detail_scroll_offset = 0;
+                Command::None
+            }
+            Message::ScrollTop if self.focus == Focus::ResponsePane => {
+                self.scroll_offset = 0;
+                Command::None
+            }
+            Message::ScrollBottom if self.focus == Focus::RequestDetail => {
+                self.detail_scroll_offset = self.detail_max_scroll;
+                Command::None
+            }
+            Message::ScrollBottom if self.focus == Focus::ResponsePane => {
+                self.scroll_offset = self.response_max_scroll;
                 Command::None
             }
             Message::ScrollLeft if self.focus == Focus::RequestList => {
@@ -224,8 +262,12 @@ impl App {
             }
             Message::SelectNext
             | Message::SelectPrev
+            | Message::SelectFirst
+            | Message::SelectLast
             | Message::ScrollUp
             | Message::ScrollDown
+            | Message::ScrollTop
+            | Message::ScrollBottom
             | Message::ScrollLeft
             | Message::ScrollRight => Command::None,
         }
@@ -760,5 +802,126 @@ mod tests {
         assert_eq!(app.list_scroll_offset_x, 2);
         assert_eq!(app.detail_scroll_offset_x, 4);
         assert_eq!(app.scroll_offset_x, 6);
+    }
+
+    #[test]
+    fn test_select_first_jumps_to_start_and_resets_offsets() {
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+            request("https://example.com/three"),
+        ]);
+        app.selected_index = 2;
+        app.detail_scroll_offset = 5;
+        app.list_scroll_offset_x = 3;
+        app.detail_scroll_offset_x = 7;
+
+        let command = app.update(Message::SelectFirst);
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.selected_index, 0);
+        assert_eq!(app.detail_scroll_offset, 0);
+        assert_eq!(app.list_scroll_offset_x, 0);
+        assert_eq!(app.detail_scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_select_last_jumps_to_end_and_resets_offsets() {
+        let mut app = app_with_requests(vec![
+            request("https://example.com/one"),
+            request("https://example.com/two"),
+            request("https://example.com/three"),
+        ]);
+        app.detail_scroll_offset = 5;
+        app.list_scroll_offset_x = 3;
+        app.detail_scroll_offset_x = 7;
+
+        let command = app.update(Message::SelectLast);
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.selected_index, 2);
+        assert_eq!(app.detail_scroll_offset, 0);
+        assert_eq!(app.list_scroll_offset_x, 0);
+        assert_eq!(app.detail_scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_select_first_on_empty_requests_is_noop() {
+        let mut app = app_with_requests(vec![]);
+
+        let command = app.update(Message::SelectFirst);
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.selected_index, 0);
+    }
+
+    #[test]
+    fn test_select_last_on_empty_requests_is_noop() {
+        let mut app = app_with_requests(vec![]);
+
+        let command = app.update(Message::SelectLast);
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.selected_index, 0);
+    }
+
+    #[test]
+    fn test_scroll_top_detail() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.detail_scroll_offset = 8;
+
+        app.update(Message::ScrollTop);
+
+        assert_eq!(app.detail_scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_scroll_bottom_detail_jumps_to_max() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.detail_max_scroll = 12;
+        app.detail_scroll_offset = 3;
+
+        app.update(Message::ScrollBottom);
+
+        assert_eq!(app.detail_scroll_offset, 12);
+    }
+
+    #[test]
+    fn test_scroll_top_response() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::ResponsePane;
+        app.scroll_offset = 8;
+
+        app.update(Message::ScrollTop);
+
+        assert_eq!(app.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_scroll_bottom_response_jumps_to_max() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::ResponsePane;
+        app.response_max_scroll = 20;
+        app.scroll_offset = 3;
+
+        app.update(Message::ScrollBottom);
+
+        assert_eq!(app.scroll_offset, 20);
+    }
+
+    #[test]
+    fn test_scroll_bottom_ignored_in_request_list() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::RequestList;
+        app.scroll_offset = 4;
+
+        let command = app.update(Message::ScrollBottom);
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.scroll_offset, 4);
     }
 }

@@ -120,7 +120,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        terminal.draw(|frame| ui::view(&app, frame))?;
+        terminal.draw(|frame| ui::view(&mut app, frame))?;
 
         if should_quit {
             break;
@@ -160,6 +160,16 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
             Focus::RequestList => Message::SelectNext,
             Focus::RequestDetail => Message::ScrollDown,
             Focus::ResponsePane => Message::ScrollDown,
+        }),
+        KeyCode::Char('g') => Some(match focus {
+            Focus::RequestList => Message::SelectFirst,
+            Focus::RequestDetail => Message::ScrollTop,
+            Focus::ResponsePane => Message::ScrollTop,
+        }),
+        KeyCode::Char('G') => Some(match focus {
+            Focus::RequestList => Message::SelectLast,
+            Focus::RequestDetail => Message::ScrollBottom,
+            Focus::ResponsePane => Message::ScrollBottom,
         }),
         KeyCode::Left | KeyCode::Char('h') => Some(Message::ScrollLeft),
         KeyCode::Right | KeyCode::Char('l') => Some(Message::ScrollRight),
@@ -234,5 +244,84 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('r'));
 
         assert!(key_message(event, Focus::RequestList, false).is_none());
+    }
+
+    #[test]
+    fn test_g_selects_first_request_in_list() {
+        let event = KeyEvent::from(KeyCode::Char('g'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::SelectFirst)
+        ));
+    }
+
+    #[test]
+    fn test_g_scrolls_top_in_request_detail() {
+        let event = KeyEvent::from(KeyCode::Char('g'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestDetail, false),
+            Some(Message::ScrollTop)
+        ));
+    }
+
+    #[test]
+    fn test_g_scrolls_top_in_response_pane() {
+        let event = KeyEvent::from(KeyCode::Char('g'));
+
+        assert!(matches!(
+            key_message(event, Focus::ResponsePane, false),
+            Some(Message::ScrollTop)
+        ));
+    }
+
+    #[test]
+    fn test_shift_g_selects_last_request_in_list() {
+        let event = KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::SelectLast)
+        ));
+    }
+
+    #[test]
+    fn test_shift_g_scrolls_bottom_in_request_detail() {
+        let event = KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestDetail, false),
+            Some(Message::ScrollBottom)
+        ));
+    }
+
+    #[test]
+    fn test_shift_g_scrolls_bottom_in_response_pane() {
+        let event = KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT);
+
+        assert!(matches!(
+            key_message(event, Focus::ResponsePane, false),
+            Some(Message::ScrollBottom)
+        ));
+    }
+
+    #[test]
+    fn test_uppercase_g_without_reported_modifier_selects_last() {
+        let event = KeyEvent::from(KeyCode::Char('G'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::SelectLast)
+        ));
+    }
+
+    #[test]
+    fn test_jump_keys_ignored_when_help_visible() {
+        let g = KeyEvent::from(KeyCode::Char('g'));
+        let uppercase_g = KeyEvent::from(KeyCode::Char('G'));
+
+        assert!(key_message(g, Focus::RequestList, true).is_none());
+        assert!(key_message(uppercase_g, Focus::ResponsePane, true).is_none());
     }
 }

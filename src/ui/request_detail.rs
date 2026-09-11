@@ -6,7 +6,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use crate::app::{App, Focus};
 use crate::parser::ParsedRequest;
 
-pub fn render(app: &App, frame: &mut Frame, area: Rect) {
+pub fn render(app: &mut App, frame: &mut Frame, area: Rect) {
     let border_color = if app.focus == Focus::RequestDetail {
         Color::Cyan
     } else {
@@ -19,17 +19,20 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
         .border_style(Style::default().fg(border_color));
 
     let widget = if app.requests.is_empty() {
+        app.detail_max_scroll = 0;
         Paragraph::new("No request selected")
             .block(block)
             .alignment(Alignment::Center)
     } else {
-        let request = &app.requests[app.selected_index];
-        Paragraph::new(format_request(request))
-            .block(block)
-            .scroll((
-                app.detail_scroll_offset as u16,
-                app.detail_scroll_offset_x as u16,
-            ))
+        let text = format_request(&app.requests[app.selected_index]);
+        app.detail_max_scroll = text
+            .lines()
+            .count()
+            .saturating_sub(usize::from(area.height.saturating_sub(2)));
+        Paragraph::new(text).block(block).scroll((
+            app.detail_scroll_offset as u16,
+            app.detail_scroll_offset_x as u16,
+        ))
     };
 
     frame.render_widget(widget, area);
@@ -92,10 +95,12 @@ mod tests {
             list_scroll_offset_x: 0,
             detail_scroll_offset_x: 0,
             scroll_offset_x: 0,
+            response_max_scroll: 0,
+            detail_max_scroll: 0,
         }
     }
 
-    fn render_app(app: &App) -> TestBackend {
+    fn render_app(app: &mut App) -> TestBackend {
         let backend = TestBackend::new(60, 10);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal
@@ -118,13 +123,13 @@ mod tests {
 
     #[test]
     fn test_renders_method_and_url() {
-        let app = app_with_requests(vec![request(
+        let mut app = app_with_requests(vec![request(
             Some("Get users"),
             Method::Get,
             "https://example.com/users",
         )]);
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let text = buffer_text(&backend);
 
         assert!(text.contains("GET https://example.com/users"));
@@ -132,13 +137,13 @@ mod tests {
 
     #[test]
     fn test_renders_headers() {
-        let app = app_with_requests(vec![request(
+        let mut app = app_with_requests(vec![request(
             Some("Get users"),
             Method::Get,
             "https://example.com/users",
         )]);
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let text = buffer_text(&backend);
 
         assert!(text.contains("Accept: application/json"));
@@ -148,9 +153,9 @@ mod tests {
     fn test_renders_body() {
         let mut req = request(Some("Post"), Method::Post, "https://example.com/users");
         req.body = Some("{\"name\": \"test\"}".to_string());
-        let app = app_with_requests(vec![req]);
+        let mut app = app_with_requests(vec![req]);
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let text = buffer_text(&backend);
 
         assert!(text.contains("{\"name\": \"test\"}"));
@@ -158,9 +163,9 @@ mod tests {
 
     #[test]
     fn test_renders_empty_state() {
-        let app = app_with_requests(vec![]);
+        let mut app = app_with_requests(vec![]);
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let text = buffer_text(&backend);
 
         assert!(text.contains("No request selected"));
@@ -168,13 +173,13 @@ mod tests {
 
     #[test]
     fn test_border_cyan_when_focused() {
-        let app = app_with_requests(vec![request(
+        let mut app = app_with_requests(vec![request(
             Some("Get"),
             Method::Get,
             "https://example.com",
         )]);
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let cell = &backend.buffer()[(0, 0)];
 
         assert_eq!(cell.fg, ratatui::style::Color::Cyan);
@@ -189,7 +194,7 @@ mod tests {
         )]);
         app.focus = Focus::RequestList;
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let cell = &backend.buffer()[(0, 0)];
 
         assert_eq!(cell.fg, ratatui::style::Color::DarkGray);
@@ -204,12 +209,37 @@ mod tests {
         )]);
         app.detail_scroll_offset_x = 5;
 
-        let backend = render_app(&app);
+        let backend = render_app(&mut app);
         let text = buffer_text(&backend);
 
         // With offset 5, the leading "GET h" is clipped; the panel shows from "ttps://..." onward.
         assert!(!text.contains("GET https://example.com/users"));
         assert!(text.contains("ttps://example.com/users"));
+    }
+
+    #[test]
+    fn test_long_request_stores_max_scroll() {
+        let mut req = request(Some("Post"), Method::Post, "https://example.com/users");
+        req.body = Some(
+            (0..40)
+                .map(|line| format!("line {line}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        let mut app = app_with_requests(vec![req]);
+
+        render_app(&mut app);
+
+        assert!(app.detail_max_scroll > 0);
+    }
+
+    #[test]
+    fn test_empty_state_stores_zero_max_scroll() {
+        let mut app = app_with_requests(vec![]);
+
+        render_app(&mut app);
+
+        assert_eq!(app.detail_max_scroll, 0);
     }
 
     #[test]
