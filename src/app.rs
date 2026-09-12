@@ -120,6 +120,20 @@ impl App {
         line_count.saturating_sub(usize::from(inner.height))
     }
 
+    pub fn response_max_scroll_x(&self) -> usize {
+        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let inner = areas.response_pane.inner(Margin::new(1, 1));
+        match &self.status {
+            // Error text renders wrapped, so it never overflows horizontally.
+            AppStatus::Error(_) => 0,
+            _ => match &self.response {
+                Some(response) => content::max_line_width(&content::format_response(response))
+                    .saturating_sub(usize::from(inner.width)),
+                None => 0,
+            },
+        }
+    }
+
     pub fn detail_max_scroll(&self) -> usize {
         let areas = layout::pane_areas(self.size, self.show_request_detail);
         match areas.request_detail {
@@ -132,6 +146,45 @@ impl App {
             }
             _ => 0,
         }
+    }
+
+    pub fn detail_max_scroll_x(&self) -> usize {
+        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        match areas.request_detail {
+            Some(detail_area) if !self.requests.is_empty() => {
+                let inner = detail_area.inner(Margin::new(1, 1));
+                content::max_line_width(&content::format_request(
+                    &self.requests[self.selected_index],
+                ))
+                .saturating_sub(usize::from(inner.width))
+            }
+            _ => 0,
+        }
+    }
+
+    pub fn list_max_scroll_x(&self) -> usize {
+        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let inner = areas.request_list.inner(Margin::new(1, 1));
+        self.requests
+            .iter()
+            .enumerate()
+            .map(|(index, request)| {
+                let selected_prefix = if index == self.selected_index {
+                    ">"
+                } else {
+                    " "
+                };
+                let sent_prefix = if self.last_sent_index == Some(index) {
+                    "●"
+                } else {
+                    " "
+                };
+                let label = content::request_label(request);
+                content::max_line_width(&format!("{selected_prefix}{sent_prefix} {label}"))
+            })
+            .max()
+            .unwrap_or(0)
+            .saturating_sub(usize::from(inner.width))
     }
 
     fn handle(&mut self, msg: Message) -> Command {
@@ -232,6 +285,30 @@ impl App {
                 self.scroll_offset_x = self.scroll_offset_x.saturating_add(1);
                 Command::None
             }
+            Message::ScrollStart if self.focus == Focus::RequestList => {
+                self.list_scroll_offset_x = 0;
+                Command::None
+            }
+            Message::ScrollStart if self.focus == Focus::RequestDetail => {
+                self.detail_scroll_offset_x = 0;
+                Command::None
+            }
+            Message::ScrollStart if self.focus == Focus::ResponsePane => {
+                self.scroll_offset_x = 0;
+                Command::None
+            }
+            Message::ScrollEnd if self.focus == Focus::RequestList => {
+                self.list_scroll_offset_x = self.list_max_scroll_x();
+                Command::None
+            }
+            Message::ScrollEnd if self.focus == Focus::RequestDetail => {
+                self.detail_scroll_offset_x = self.detail_max_scroll_x();
+                Command::None
+            }
+            Message::ScrollEnd if self.focus == Focus::ResponsePane => {
+                self.scroll_offset_x = self.response_max_scroll_x();
+                Command::None
+            }
             Message::SendRequest => {
                 let Some(request) = self.requests.get(self.selected_index) else {
                     self.set_error("No request selected".to_string());
@@ -305,6 +382,8 @@ impl App {
             | Message::ScrollDown
             | Message::ScrollTop
             | Message::ScrollBottom
+            | Message::ScrollStart
+            | Message::ScrollEnd
             | Message::ScrollLeft
             | Message::ScrollRight => Command::None,
         }
@@ -1109,5 +1188,198 @@ mod tests {
         app.update(Message::Resize(80, 20));
 
         assert_eq!(app.detail_max_scroll(), 0);
+    }
+
+    #[test]
+    fn test_scroll_start_list_zeroes_offset() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::RequestList;
+        app.list_scroll_offset_x = 5;
+
+        app.update(Message::ScrollStart);
+
+        assert_eq!(app.list_scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_scroll_start_detail_zeroes_offset() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.detail_scroll_offset_x = 5;
+
+        app.update(Message::ScrollStart);
+
+        assert_eq!(app.detail_scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_scroll_start_response_zeroes_offset() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::ResponsePane;
+        app.scroll_offset_x = 5;
+
+        app.update(Message::ScrollStart);
+
+        assert_eq!(app.scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_scroll_end_short_list_zeroes_offset() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::RequestList;
+        app.list_scroll_offset_x = 5;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollEnd);
+
+        assert_eq!(app.list_scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_scroll_end_short_detail_zeroes_offset() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.detail_scroll_offset_x = 5;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollEnd);
+
+        assert_eq!(app.detail_scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_scroll_end_short_response_zeroes_offset() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.response = Some(sample_response());
+        app.focus = Focus::ResponsePane;
+        app.scroll_offset_x = 5;
+
+        app.update(Message::Resize(50, 10));
+        app.update(Message::ScrollEnd);
+
+        assert_eq!(app.scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_scroll_end_ignored_in_request_list() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.focus = Focus::RequestList;
+        app.scroll_offset_x = 4;
+
+        let command = app.update(Message::ScrollEnd);
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.scroll_offset_x, 4);
+    }
+
+    #[test]
+    fn test_scroll_end_list_jumps_to_max() {
+        let mut req = request("https://example.com");
+        req.name = Some("x".repeat(200));
+        let mut app = app_with_requests(vec![req]);
+        app.focus = Focus::RequestList;
+        app.list_scroll_offset_x = 3;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollEnd);
+
+        assert_eq!(app.list_scroll_offset_x, app.list_max_scroll_x());
+        assert!(app.list_scroll_offset_x > 3);
+    }
+
+    #[test]
+    fn test_scroll_end_detail_jumps_to_max() {
+        let url = format!("https://example.com/{}", "x".repeat(200));
+        let mut app = app_with_requests(vec![request(&url)]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.detail_scroll_offset_x = 3;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollEnd);
+
+        assert_eq!(app.detail_scroll_offset_x, app.detail_max_scroll_x());
+        assert!(app.detail_scroll_offset_x > 3);
+    }
+
+    #[test]
+    fn test_scroll_end_response_jumps_to_max() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.response = Some(AppResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: vec![("content-type".to_string(), "text/plain".to_string())],
+            body: "x".repeat(200),
+            content_type: Some("text/plain".to_string()),
+            duration: Duration::from_millis(15),
+            size_bytes: 200,
+        });
+        app.focus = Focus::ResponsePane;
+        app.scroll_offset_x = 3;
+
+        app.update(Message::Resize(50, 10));
+        app.update(Message::ScrollEnd);
+
+        assert_eq!(app.scroll_offset_x, app.response_max_scroll_x());
+        assert!(app.scroll_offset_x > 3);
+    }
+
+    #[test]
+    fn test_error_status_computes_zero_max_scroll_x() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.status = AppStatus::Error("x".repeat(1500));
+
+        app.update(Message::Resize(80, 20));
+
+        assert_eq!(app.response_max_scroll_x(), 0);
+    }
+
+    #[test]
+    fn test_long_response_computes_max_scroll_x() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.response = Some(AppResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: vec![("content-type".to_string(), "text/plain".to_string())],
+            body: "x".repeat(200),
+            content_type: Some("text/plain".to_string()),
+            duration: Duration::from_millis(15),
+            size_bytes: 200,
+        });
+
+        app.update(Message::Resize(50, 10));
+
+        assert!(app.response_max_scroll_x() > 0);
+    }
+
+    #[test]
+    fn test_no_response_computes_zero_max_scroll_x() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        app.update(Message::Resize(50, 10));
+
+        assert_eq!(app.response_max_scroll_x(), 0);
+    }
+
+    #[test]
+    fn test_long_request_name_computes_list_max_scroll_x() {
+        let mut req = request("https://example.com");
+        req.name = Some("x".repeat(200));
+        let mut app = app_with_requests(vec![req]);
+
+        app.update(Message::Resize(80, 20));
+
+        assert!(app.list_max_scroll_x() > 0);
+    }
+
+    #[test]
+    fn test_empty_requests_compute_zero_list_max_scroll_x() {
+        let mut app = app_with_requests(vec![]);
+
+        app.update(Message::Resize(80, 20));
+
+        assert_eq!(app.list_max_scroll_x(), 0);
     }
 }

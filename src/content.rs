@@ -54,6 +54,27 @@ pub fn format_request(request: &ParsedRequest) -> String {
     lines.join("\n")
 }
 
+pub fn request_label(request: &ParsedRequest) -> String {
+    request
+        .name
+        .clone()
+        .unwrap_or_else(|| format!("{} {}", request.method, url_display(&request.url)))
+}
+
+pub fn url_display(url: &str) -> String {
+    if let Some(path) = http_url_path(url) {
+        path.to_string()
+    } else {
+        url.to_string()
+    }
+}
+
+pub fn http_url_path(url: &str) -> Option<&str> {
+    let scheme_index = url.find("://")?;
+    let path_start = url[scheme_index + 3..].find('/')? + scheme_index + 3;
+    Some(&url[path_start..])
+}
+
 /// Display-line lower bound: word-wrap only produces more lines than width division.
 pub fn wrapped_line_count(text: &str, width: usize) -> usize {
     if width == 0 {
@@ -62,6 +83,10 @@ pub fn wrapped_line_count(text: &str, width: usize) -> usize {
     text.lines()
         .map(|line| UnicodeWidthStr::width(line).div_ceil(width).max(1))
         .sum()
+}
+
+pub fn max_line_width(text: &str) -> usize {
+    text.lines().map(UnicodeWidthStr::width).max().unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -83,5 +108,48 @@ mod tests {
         let text = format_request(&req);
 
         assert_eq!(text, "GET https://example.com");
+    }
+
+    #[test]
+    fn test_max_line_width_takes_maximum_across_lines() {
+        assert_eq!(max_line_width("abc\ndefgh\nxy"), 5);
+    }
+
+    #[test]
+    fn test_max_line_width_of_empty_text_is_zero() {
+        assert_eq!(max_line_width(""), 0);
+    }
+
+    #[test]
+    fn test_max_line_width_of_single_line_is_its_width() {
+        assert_eq!(max_line_width("hello"), 5);
+    }
+
+    #[test]
+    fn test_request_label_prefers_name() {
+        let req = ParsedRequest {
+            name: Some("Named".to_string()),
+            method: Method::Get,
+            url: "https://example.com/users".to_string(),
+            headers: vec![],
+            body: None,
+            source_line: 1,
+        };
+
+        assert_eq!(request_label(&req), "Named");
+    }
+
+    #[test]
+    fn test_request_label_falls_back_to_method_and_path() {
+        let req = ParsedRequest {
+            name: None,
+            method: Method::Get,
+            url: "https://example.com/users".to_string(),
+            headers: vec![],
+            body: None,
+            source_line: 1,
+        };
+
+        assert_eq!(request_label(&req), "GET /users");
     }
 }

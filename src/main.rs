@@ -173,6 +173,8 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
         }),
         KeyCode::Left | KeyCode::Char('h') => Some(Message::ScrollLeft),
         KeyCode::Right | KeyCode::Char('l') => Some(Message::ScrollRight),
+        KeyCode::Home | KeyCode::Char('0') => Some(Message::ScrollStart),
+        KeyCode::End | KeyCode::Char('$') => Some(Message::ScrollEnd),
         KeyCode::Enter => Some(Message::SendRequest),
         KeyCode::Tab => Some(Message::ToggleFocus),
         KeyCode::Char('R') => Some(Message::ReloadFile),
@@ -323,5 +325,58 @@ mod tests {
 
         assert!(key_message(g, Focus::RequestList, true).is_none());
         assert!(key_message(uppercase_g, Focus::ResponsePane, true).is_none());
+    }
+
+    #[test]
+    fn test_home_scrolls_start() {
+        let event = KeyEvent::from(KeyCode::Home);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::ScrollStart)
+        ));
+    }
+
+    #[test]
+    fn test_zero_scrolls_start() {
+        let event = KeyEvent::from(KeyCode::Char('0'));
+
+        assert!(matches!(
+            key_message(event, Focus::ResponsePane, false),
+            Some(Message::ScrollStart)
+        ));
+    }
+
+    #[test]
+    fn test_end_scrolls_end() {
+        let event = KeyEvent::from(KeyCode::End);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::ScrollEnd)
+        ));
+    }
+
+    #[test]
+    fn test_dollar_scrolls_end() {
+        let event = KeyEvent::from(KeyCode::Char('$'));
+
+        assert!(matches!(
+            key_message(event, Focus::ResponsePane, false),
+            Some(Message::ScrollEnd)
+        ));
+    }
+
+    #[test]
+    fn test_horizontal_jump_keys_ignored_when_help_visible() {
+        let zero = KeyEvent::from(KeyCode::Char('0'));
+        let dollar = KeyEvent::from(KeyCode::Char('$'));
+        let home = KeyEvent::from(KeyCode::Home);
+        let end = KeyEvent::from(KeyCode::End);
+
+        assert!(key_message(zero, Focus::RequestList, true).is_none());
+        assert!(key_message(dollar, Focus::RequestList, true).is_none());
+        assert!(key_message(home, Focus::ResponsePane, true).is_none());
+        assert!(key_message(end, Focus::ResponsePane, true).is_none());
     }
 }

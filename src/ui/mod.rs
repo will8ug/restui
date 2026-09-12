@@ -48,10 +48,12 @@ pub fn view(app: &App, frame: &mut Frame) {
 mod tests {
     use super::view;
     use std::path::PathBuf;
+    use std::time::Duration;
 
     use ratatui::{Terminal, backend::TestBackend};
 
     use crate::app::{App, AppStatus, Focus};
+    use crate::http::AppResponse;
     use crate::message::Message;
     use crate::parser::{Method, ParsedFile, ParsedRequest};
 
@@ -177,5 +179,30 @@ mod tests {
         assert!(text.contains(marker));
         assert_eq!(app.scroll_offset, app.response_max_scroll());
         assert!(app.response_max_scroll() > 0);
+    }
+
+    #[test]
+    fn test_scroll_end_reveals_tail_of_long_response_line() {
+        let mut app = app();
+        let marker = "TAIL-MARKER-67901";
+        app.response = Some(AppResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: vec![("content-type".to_string(), "text/plain".to_string())],
+            body: format!("{}{marker}", "x".repeat(300)),
+            content_type: Some("text/plain".to_string()),
+            duration: Duration::from_millis(15),
+            size_bytes: 317,
+        });
+        app.focus = Focus::ResponsePane;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollEnd);
+
+        let text = render_text(&app);
+
+        assert!(text.contains(marker));
+        assert_eq!(app.scroll_offset_x, app.response_max_scroll_x());
+        assert!(app.response_max_scroll_x() > 0);
     }
 }

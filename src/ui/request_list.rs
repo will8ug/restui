@@ -4,7 +4,7 @@ use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
 
 use crate::app::{App, Focus};
-use crate::parser::ParsedRequest;
+use crate::content::request_label;
 
 pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     let border_color = if app.focus == Focus::RequestList {
@@ -50,27 +50,6 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     }
 
     frame.render_stateful_widget(list, area, &mut state);
-}
-
-fn request_label(request: &ParsedRequest) -> String {
-    request
-        .name
-        .clone()
-        .unwrap_or_else(|| format!("{} {}", request.method, url_display(&request.url)))
-}
-
-fn url_display(url: &str) -> String {
-    if let Some(path) = http_url_path(url) {
-        path.to_string()
-    } else {
-        url.to_string()
-    }
-}
-
-fn http_url_path(url: &str) -> Option<&str> {
-    let scheme_index = url.find("://")?;
-    let path_start = url[scheme_index + 3..].find('/')? + scheme_index + 3;
-    Some(&url[path_start..])
 }
 
 fn horizontal_slice(line: &str, offset: usize) -> String {
@@ -188,20 +167,6 @@ mod tests {
         let text = buffer_text(&backend);
 
         assert!(text.contains(" ● Create user"));
-    }
-
-    #[test]
-    fn test_request_label_prefers_name() {
-        let request = request(Some("Named"), Method::Get, "https://example.com/users");
-
-        assert_eq!(request_label(&request), "Named");
-    }
-
-    #[test]
-    fn test_request_label_falls_back_to_method_and_path() {
-        let request = request(None, Method::Get, "https://example.com/users");
-
-        assert_eq!(request_label(&request), "GET /users");
     }
 
     #[test]

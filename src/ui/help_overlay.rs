@@ -8,7 +8,8 @@ const HELP_TEXT: &str = "\
    ↓ / j     Move down / Scroll down
    ← / h     Scroll left
    → / l     Scroll right
-   g / G     Jump to start / end
+   g / G     Jump to start / end vertically
+   0 / $ / Home / End  Jump to start / end horizontally
    Tab       Toggle focus between panes
 
  Actions
@@ -36,7 +37,7 @@ pub fn render(frame: &mut Frame) {
 
 fn centered_rect(area: Rect) -> Rect {
     let width = (area.width * 60 / 100).max(40).min(area.width);
-    let height = (area.height * 70 / 100).max(18).min(area.height);
+    let height = (area.height * 70 / 100).max(20).min(area.height);
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect::new(x, y, width, height)
@@ -104,7 +105,26 @@ mod tests {
             .join("\n");
 
         assert!(text.contains("g / G"));
-        assert!(text.contains("Jump to start / end"));
+        assert!(text.contains("Jump to start / end vertically"));
+    }
+
+    #[test]
+    fn test_help_overlay_documents_horizontal_jump_keys() {
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(render).unwrap();
+        let buffer = terminal.backend().buffer();
+        let text: String = (0..buffer.area().height)
+            .map(|y| {
+                (0..buffer.area().width)
+                    .map(|x| buffer[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(text.contains("0 / $ / Home / End"));
+        assert!(text.contains("Jump to start / end horizontally"));
     }
 
     #[test]
@@ -114,7 +134,7 @@ mod tests {
 
         // Width clamped to area.width (30) since min(40) > area width
         assert_eq!(rect.width, 30);
-        // Height clamped to area.height (8) since min(18) > area height
+        // Height clamped to area.height (8) since min(20) > area height
         assert_eq!(rect.height, 8);
     }
 

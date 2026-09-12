@@ -15,6 +15,8 @@ pub enum Message {
     ScrollDown,
     ScrollTop,
     ScrollBottom,
+    ScrollStart,
+    ScrollEnd,
     ScrollLeft,
     ScrollRight,
     ReloadFile,
