@@ -2,6 +2,7 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
+use unicode_width::UnicodeWidthChar;
 
 use crate::app::{App, Focus};
 use crate::content::request_label;
@@ -53,7 +54,22 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn horizontal_slice(line: &str, offset: usize) -> String {
-    line.chars().skip(offset).collect()
+    let mut skipped = 0;
+    let mut visible = String::new();
+    for ch in line.chars() {
+        if skipped >= offset {
+            visible.push(ch);
+            continue;
+        }
+        let width = UnicodeWidthChar::width(ch).unwrap_or(1);
+        if skipped + width <= offset {
+            skipped += width;
+        } else {
+            visible.push(' ');
+            skipped = offset;
+        }
+    }
+    visible
 }
 
 #[cfg(test)]
@@ -182,6 +198,16 @@ mod tests {
     #[test]
     fn test_horizontal_slice_zero_offset() {
         assert_eq!(horizontal_slice(">  List users", 0), ">  List users");
+    }
+
+    #[test]
+    fn test_horizontal_slice_skips_wide_chars_by_display_width() {
+        assert_eq!(horizontal_slice("あいう", 2), "いう");
+    }
+
+    #[test]
+    fn test_horizontal_slice_pads_straddled_wide_char() {
+        assert_eq!(horizontal_slice("aあb", 2), " b");
     }
 
     #[test]

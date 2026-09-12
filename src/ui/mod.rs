@@ -164,6 +164,24 @@ mod tests {
     }
 
     #[test]
+    fn test_scroll_end_reveals_tail_of_wide_list_name() {
+        let mut app = app();
+        app.requests[0].name = Some(format!("{}Z端点", "日本語".repeat(12)));
+        app.focus = Focus::RequestList;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollEnd);
+
+        let text = render_text(&app);
+
+        // Wide chars occupy two cells; buffer_text interleaves a space for each
+        // continuation cell, so compare against the space-normalized text.
+        assert!(text.replace(' ', "").contains("Z端点"));
+        assert_eq!(app.list_scroll_offset_x, app.list_max_scroll_x());
+        assert!(app.list_max_scroll_x() > 0);
+    }
+
+    #[test]
     fn test_scroll_bottom_reveals_end_of_wrapped_error() {
         let mut app = app();
         let marker = "OSStatus-67901";
