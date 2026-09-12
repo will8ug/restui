@@ -2,7 +2,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use ratatui::layout::Margin;
+
+use crate::content;
 use crate::http::AppResponse;
+use crate::layout;
 use crate::message::{Command, Message};
 use crate::parser::{self, ParsedFile, ParsedRequest, Variable};
 use crate::vars;
@@ -39,8 +43,6 @@ pub struct App {
     pub list_scroll_offset_x: usize,
     pub detail_scroll_offset_x: usize,
     pub scroll_offset_x: usize,
-    pub response_max_scroll: usize,
-    pub detail_max_scroll: usize,
 }
 
 impl App {
@@ -62,8 +64,6 @@ impl App {
             list_scroll_offset_x: 0,
             detail_scroll_offset_x: 0,
             scroll_offset_x: 0,
-            response_max_scroll: 0,
-            detail_max_scroll: 0,
         }
     }
 
@@ -83,11 +83,11 @@ impl App {
                     self.status = AppStatus::Reloaded(Instant::now());
                 }
                 Err(error) => {
-                    self.status = AppStatus::Error(error.to_string());
+                    self.set_error(error.to_string());
                 }
             },
             Err(error) => {
-                self.status = AppStatus::Error(format!(
+                self.set_error(format!(
                     "Failed to read {}: {error}",
                     self.file_path.display()
                 ));
@@ -96,6 +96,45 @@ impl App {
     }
 
     pub fn update(&mut self, msg: Message) -> Command {
+        self.handle(msg)
+    }
+
+    fn set_error(&mut self, message: String) {
+        self.status = AppStatus::Error(message);
+        self.scroll_offset = 0;
+        self.scroll_offset_x = 0;
+    }
+
+    pub fn response_max_scroll(&self) -> usize {
+        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let inner = areas.response_pane.inner(Margin::new(1, 1));
+        let line_count = match &self.status {
+            AppStatus::Error(message) => {
+                content::wrapped_line_count(message, usize::from(inner.width))
+            }
+            _ => match &self.response {
+                Some(response) => content::format_response(response).lines().count(),
+                None => 0,
+            },
+        };
+        line_count.saturating_sub(usize::from(inner.height))
+    }
+
+    pub fn detail_max_scroll(&self) -> usize {
+        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        match areas.request_detail {
+            Some(detail_area) if !self.requests.is_empty() => {
+                let inner = detail_area.inner(Margin::new(1, 1));
+                content::format_request(&self.requests[self.selected_index])
+                    .lines()
+                    .count()
+                    .saturating_sub(usize::from(inner.height))
+            }
+            _ => 0,
+        }
+    }
+
+    fn handle(&mut self, msg: Message) -> Command {
         match msg {
             Message::SelectNext
                 if self.focus == Focus::RequestList && !self.requests.is_empty() =>
@@ -162,11 +201,11 @@ impl App {
                 Command::None
             }
             Message::ScrollBottom if self.focus == Focus::RequestDetail => {
-                self.detail_scroll_offset = self.detail_max_scroll;
+                self.detail_scroll_offset = self.detail_max_scroll();
                 Command::None
             }
             Message::ScrollBottom if self.focus == Focus::ResponsePane => {
-                self.scroll_offset = self.response_max_scroll;
+                self.scroll_offset = self.response_max_scroll();
                 Command::None
             }
             Message::ScrollLeft if self.focus == Focus::RequestList => {
@@ -195,7 +234,7 @@ impl App {
             }
             Message::SendRequest => {
                 let Some(request) = self.requests.get(self.selected_index) else {
-                    self.status = AppStatus::Error("No request selected".to_string());
+                    self.set_error("No request selected".to_string());
                     return Command::None;
                 };
 
@@ -205,7 +244,7 @@ impl App {
                         Command::SendHttp(resolved)
                     }
                     Err(error) => {
-                        self.status = AppStatus::Error(error.to_string());
+                        self.set_error(error.to_string());
                         Command::None
                     }
                 }
@@ -219,9 +258,7 @@ impl App {
                 Command::None
             }
             Message::ResponseError(error) => {
-                self.status = AppStatus::Error(error);
-                self.scroll_offset = 0;
-                self.scroll_offset_x = 0;
+                self.set_error(error);
                 Command::None
             }
             Message::ToggleFocus => {
@@ -440,6 +477,8 @@ mod tests {
     #[test]
     fn test_send_request_undefined_var() {
         let mut app = app_with_requests(vec![request("{{missing}}/users")]);
+        app.scroll_offset = 3;
+        app.scroll_offset_x = 2;
 
         let command = app.update(Message::SendRequest);
 
@@ -448,6 +487,24 @@ mod tests {
             app.status,
             AppStatus::Error("Undefined variable 'missing' in url".to_string())
         );
+        assert_eq!(app.scroll_offset, 0);
+        assert_eq!(app.scroll_offset_x, 0);
+    }
+
+    #[test]
+    fn test_send_request_no_selection_resets_scroll_offsets() {
+        let mut app = app_with_requests(vec![]);
+        app.scroll_offset = 5;
+        app.scroll_offset_x = 2;
+
+        app.update(Message::SendRequest);
+
+        assert_eq!(
+            app.status,
+            AppStatus::Error("No request selected".to_string())
+        );
+        assert_eq!(app.scroll_offset, 0);
+        assert_eq!(app.scroll_offset_x, 0);
     }
 
     #[test]
@@ -646,6 +703,44 @@ mod tests {
         );
 
         fs::remove_file(&file_path).expect("should remove temp request file");
+    }
+
+    #[test]
+    fn test_reload_file_parse_error_resets_scroll_offsets() {
+        let file_path = temp_file_path("reload-parse-scroll");
+        fs::write(&file_path, "TRACE https://example.com")
+            .expect("should write invalid temp request file");
+
+        let mut app = App::new(
+            file_path.clone(),
+            parsed_file(vec![request("https://original.example.com")], vec![]),
+        );
+        app.scroll_offset = 4;
+        app.scroll_offset_x = 3;
+
+        app.update(Message::ReloadFile);
+
+        assert!(
+            matches!(app.status, AppStatus::Error(message) if message.contains("Parse error at line 1"))
+        );
+        assert_eq!(app.scroll_offset, 0);
+        assert_eq!(app.scroll_offset_x, 0);
+
+        fs::remove_file(&file_path).expect("should remove temp request file");
+    }
+
+    #[test]
+    fn test_reload_file_read_error_resets_scroll_offsets() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.file_path = temp_file_path("reload-missing");
+        app.scroll_offset = 4;
+        app.scroll_offset_x = 3;
+
+        app.update(Message::ReloadFile);
+
+        assert!(matches!(app.status, AppStatus::Error(_)));
+        assert_eq!(app.scroll_offset, 0);
+        assert_eq!(app.scroll_offset_x, 0);
     }
 
     #[test]
@@ -879,15 +974,23 @@ mod tests {
 
     #[test]
     fn test_scroll_bottom_detail_jumps_to_max() {
-        let mut app = app_with_requests(vec![request("https://example.com")]);
+        let mut req = request("https://example.com");
+        req.body = Some(
+            (0..40)
+                .map(|line| format!("line {line}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        let mut app = app_with_requests(vec![req]);
         app.show_request_detail = true;
         app.focus = Focus::RequestDetail;
-        app.detail_max_scroll = 12;
         app.detail_scroll_offset = 3;
 
+        app.update(Message::Resize(80, 20));
         app.update(Message::ScrollBottom);
 
-        assert_eq!(app.detail_scroll_offset, 12);
+        assert_eq!(app.detail_scroll_offset, app.detail_max_scroll());
+        assert!(app.detail_scroll_offset > 3);
     }
 
     #[test]
@@ -904,13 +1007,27 @@ mod tests {
     #[test]
     fn test_scroll_bottom_response_jumps_to_max() {
         let mut app = app_with_requests(vec![request("https://example.com")]);
+        let body = (0..40)
+            .map(|line| format!("line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        app.response = Some(AppResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: vec![("content-type".to_string(), "text/plain".to_string())],
+            body,
+            content_type: Some("text/plain".to_string()),
+            duration: Duration::from_millis(15),
+            size_bytes: 0,
+        });
         app.focus = Focus::ResponsePane;
-        app.response_max_scroll = 20;
         app.scroll_offset = 3;
 
+        app.update(Message::Resize(50, 10));
         app.update(Message::ScrollBottom);
 
-        assert_eq!(app.scroll_offset, 20);
+        assert_eq!(app.scroll_offset, app.response_max_scroll());
+        assert!(app.scroll_offset > 3);
     }
 
     #[test]
@@ -923,5 +1040,74 @@ mod tests {
 
         assert!(matches!(command, Command::None));
         assert_eq!(app.scroll_offset, 4);
+    }
+
+    #[test]
+    fn test_long_response_computes_max_scroll() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        let body = (0..40)
+            .map(|line| format!("line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        app.response = Some(AppResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers: vec![("content-type".to_string(), "text/plain".to_string())],
+            body,
+            content_type: Some("text/plain".to_string()),
+            duration: Duration::from_millis(15),
+            size_bytes: 0,
+        });
+
+        app.update(Message::Resize(50, 10));
+
+        assert!(app.response_max_scroll() > 0);
+    }
+
+    #[test]
+    fn test_short_response_computes_zero_max_scroll() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.response = Some(sample_response());
+
+        app.update(Message::Resize(50, 10));
+
+        assert_eq!(app.response_max_scroll(), 0);
+    }
+
+    #[test]
+    fn test_long_wrapped_error_computes_max_scroll() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.status = AppStatus::Error("x".repeat(1500));
+
+        app.update(Message::Resize(80, 20));
+
+        assert!(app.response_max_scroll() > 0);
+    }
+
+    #[test]
+    fn test_long_request_computes_max_scroll() {
+        let mut req = request("https://example.com/users");
+        req.body = Some(
+            (0..40)
+                .map(|line| format!("line {line}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        let mut app = app_with_requests(vec![req]);
+        app.show_request_detail = true;
+
+        app.update(Message::Resize(80, 20));
+
+        assert!(app.detail_max_scroll() > 0);
+    }
+
+    #[test]
+    fn test_empty_detail_state_computes_zero_max_scroll() {
+        let mut app = app_with_requests(vec![]);
+        app.show_request_detail = true;
+
+        app.update(Message::Resize(80, 20));
+
+        assert_eq!(app.detail_max_scroll(), 0);
     }
 }

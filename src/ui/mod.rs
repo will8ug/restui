@@ -10,20 +10,18 @@ use ratatui::widgets::Paragraph;
 
 use crate::app::App;
 
-pub fn view(app: &mut App, frame: &mut Frame) {
-    let areas = Layout::default()
+pub fn view(app: &App, frame: &mut Frame) {
+    let area = frame.area();
+    let panes = crate::layout::pane_areas((area.width, area.height), app.show_request_detail);
+
+    let chrome = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
             Constraint::Min(0),
             Constraint::Length(1),
         ])
-        .split(frame.area());
-
-    let content_areas = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-        .split(areas[1]);
+        .split(area);
 
     let filename = app
         .file_path
@@ -32,21 +30,14 @@ pub fn view(app: &mut App, frame: &mut Frame) {
         .map(str::to_owned)
         .unwrap_or_else(|| app.file_path.display().to_string());
 
-    frame.render_widget(Paragraph::new(format!("restui - {filename}")), areas[0]);
-    request_list::render(app, frame, content_areas[0]);
+    frame.render_widget(Paragraph::new(format!("restui - {filename}")), chrome[0]);
+    request_list::render(app, frame, panes.request_list);
 
-    if app.show_request_detail {
-        let right_areas = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-            .split(content_areas[1]);
-
-        request_detail::render(app, frame, right_areas[0]);
-        response_pane::render(app, frame, right_areas[1]);
-    } else {
-        response_pane::render(app, frame, content_areas[1]);
+    if let Some(detail) = panes.request_detail {
+        request_detail::render(app, frame, detail);
     }
-    status_bar::render(app, frame, areas[2]);
+    response_pane::render(app, frame, panes.response_pane);
+    status_bar::render(app, frame, chrome[2]);
 
     if app.show_help {
         help_overlay::render(frame);
@@ -60,7 +51,8 @@ mod tests {
 
     use ratatui::{Terminal, backend::TestBackend};
 
-    use crate::app::App;
+    use crate::app::{App, AppStatus, Focus};
+    use crate::message::Message;
     use crate::parser::{Method, ParsedFile, ParsedRequest};
 
     fn app() -> App {
@@ -80,7 +72,7 @@ mod tests {
         )
     }
 
-    fn render_text(app: &mut App) -> String {
+    fn render_text(app: &App) -> String {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(|frame| view(app, frame)).unwrap();
@@ -99,21 +91,21 @@ mod tests {
 
     #[test]
     fn test_layout_has_title_bar() {
-        let text = render_text(&mut app());
+        let text = render_text(&app());
 
         assert!(text.contains("restui - requests.http"));
     }
 
     #[test]
     fn test_layout_has_request_list() {
-        let text = render_text(&mut app());
+        let text = render_text(&app());
 
         assert!(text.contains("Requests"));
     }
 
     #[test]
     fn test_layout_has_response_pane() {
-        let text = render_text(&mut app());
+        let text = render_text(&app());
 
         assert!(text.contains("Response"));
     }
@@ -123,7 +115,7 @@ mod tests {
         let mut app = app();
         app.show_request_detail = true;
 
-        let text = render_text(&mut app);
+        let text = render_text(&app);
 
         assert!(text.contains("Request Detail"));
         assert!(text.contains("Response"));
@@ -131,9 +123,9 @@ mod tests {
 
     #[test]
     fn test_layout_no_detail_panel_when_closed() {
-        let mut app = app();
+        let app = app();
 
-        let text = render_text(&mut app);
+        let text = render_text(&app);
 
         assert!(!text.contains("Request Detail"));
         assert!(text.contains("Response"));
@@ -141,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_layout_has_status_bar() {
-        let text = render_text(&mut app());
+        let text = render_text(&app());
 
         assert!(text.contains("[Enter] Send"));
         assert!(text.contains("[Tab] Focus"));
@@ -154,7 +146,7 @@ mod tests {
         let mut app = app();
         app.show_help = true;
 
-        let text = render_text(&mut app);
+        let text = render_text(&app);
 
         assert!(text.contains("Help (? or Esc to close)"));
         assert!(text.contains("Navigation"));
@@ -162,10 +154,28 @@ mod tests {
 
     #[test]
     fn test_help_overlay_hidden_by_default() {
-        let mut app = app();
+        let app = app();
 
-        let text = render_text(&mut app);
+        let text = render_text(&app);
 
         assert!(!text.contains("Help (? or Esc to close)"));
+    }
+
+    #[test]
+    fn test_scroll_bottom_reveals_end_of_wrapped_error() {
+        let mut app = app();
+        let marker = "OSStatus-67901";
+        let message = format!("{}{marker}", "x".repeat(54 * 27));
+        app.status = AppStatus::Error(message);
+        app.focus = Focus::ResponsePane;
+
+        app.update(Message::Resize(80, 20));
+        app.update(Message::ScrollBottom);
+
+        let text = render_text(&app);
+
+        assert!(text.contains(marker));
+        assert_eq!(app.scroll_offset, app.response_max_scroll());
+        assert!(app.response_max_scroll() > 0);
     }
 }

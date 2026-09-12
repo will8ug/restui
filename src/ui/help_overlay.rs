@@ -52,7 +52,7 @@ mod tests {
     fn test_help_overlay_renders_title() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|frame| render(frame)).unwrap();
+        terminal.draw(render).unwrap();
         let buffer = terminal.backend().buffer();
         let text: String = (0..buffer.area().height)
             .map(|y| {
@@ -70,7 +70,7 @@ mod tests {
     fn test_help_overlay_renders_shortcuts() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        terminal.draw(|frame| render(frame)).unwrap();
+        terminal.draw(render).unwrap();
         let buffer = terminal.backend().buffer();
         let text: String = (0..buffer.area().height)
             .map(|y| {

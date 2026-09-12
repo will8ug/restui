@@ -120,7 +120,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        terminal.draw(|frame| ui::view(&mut app, frame))?;
+        terminal.draw(|frame| ui::view(&app, frame))?;
 
         if should_quit {
             break;
