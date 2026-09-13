@@ -90,4 +90,3 @@ Content-Type: {{content_type}}
 ## Documentation
 
 - [TLS Troubleshooting](docs/tls.md) — Custom certificate authorities, `--no-verify`, and platform support.
-- [Releasing](docs/releasing.md) — Maintainer guide to publishing a new version to npm.
