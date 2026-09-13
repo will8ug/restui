@@ -4,7 +4,7 @@ use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::{App, Focus};
-use crate::content::format_request;
+use crate::content::format_request_detail;
 
 pub fn render(app: &App, frame: &mut Frame, area: Rect) {
     let border_color = if app.focus == Focus::RequestDetail {
@@ -23,7 +23,7 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
             .block(block)
             .alignment(Alignment::Center)
     } else {
-        let text = format_request(&app.requests[app.selected_index]);
+        let text = format_request_detail(&app.variables, &app.requests[app.selected_index]);
         Paragraph::new(text).block(block).scroll((
             app.detail_scroll_offset as u16,
             app.detail_scroll_offset_x as u16,
@@ -108,6 +108,61 @@ mod tests {
         let text = buffer_text(&backend);
 
         assert!(text.contains("GET https://example.com/users"));
+    }
+
+    #[test]
+    fn test_renders_resolved_url_and_headers() {
+        let mut app = app_with_requests(vec![request(Some("Get"), Method::Get, "{{host}}/get")]);
+        app.requests[0].headers = vec![("Accept".to_string(), "{{content_type}}".to_string())];
+        app.variables = vec![
+            crate::parser::Variable {
+                name: "host".to_string(),
+                value: "https://httpbin.org".to_string(),
+            },
+            crate::parser::Variable {
+                name: "content_type".to_string(),
+                value: "application/json".to_string(),
+            },
+        ];
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("GET https://httpbin.org/get"));
+        assert!(text.contains("Accept: application/json"));
+        assert!(!text.contains("{{host}}"));
+        assert!(!text.contains("{{content_type}}"));
+    }
+
+    #[test]
+    fn test_renders_resolved_body() {
+        let mut app = app_with_requests(vec![request(Some("Post"), Method::Post, "{{host}}/post")]);
+        app.requests[0].body = Some("{\"name\": \"{{username}}\"}".to_string());
+        app.variables = vec![
+            crate::parser::Variable {
+                name: "host".to_string(),
+                value: "https://httpbin.org".to_string(),
+            },
+            crate::parser::Variable {
+                name: "username".to_string(),
+                value: "restui".to_string(),
+            },
+        ];
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("{\"name\": \"restui\"}"));
+    }
+
+    #[test]
+    fn test_renders_raw_template_when_variable_undefined() {
+        let app = app_with_requests(vec![request(Some("Get"), Method::Get, "{{missing}}/get")]);
+
+        let backend = render_app(&app);
+        let text = buffer_text(&backend);
+
+        assert!(text.contains("GET {{missing}}/get"));
     }
 
     #[test]

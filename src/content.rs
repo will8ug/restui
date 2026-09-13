@@ -2,7 +2,8 @@ use serde_json::Value;
 use unicode_width::UnicodeWidthStr;
 
 use crate::http::AppResponse;
-use crate::parser::ParsedRequest;
+use crate::parser::{Method, ParsedRequest, Variable};
+use crate::vars;
 
 pub fn format_response(response: &AppResponse) -> String {
     let mut lines = vec![format!("HTTP {} {}", response.status, response.status_text)];
@@ -37,18 +38,44 @@ pub fn format_body(response: &AppResponse) -> String {
 }
 
 pub fn format_request(request: &ParsedRequest) -> String {
-    let mut lines = vec![format!("{} {}", request.method, request.url)];
+    format_parts(
+        &request.method,
+        &request.url,
+        &request.headers,
+        request.body.as_deref(),
+    )
+}
 
-    if !request.headers.is_empty() {
+pub fn format_request_detail(variables: &[Variable], request: &ParsedRequest) -> String {
+    match vars::resolve(variables, request) {
+        Ok(resolved) => format_parts(
+            &resolved.method,
+            &resolved.url,
+            &resolved.headers,
+            resolved.body.as_deref(),
+        ),
+        Err(_) => format_request(request),
+    }
+}
+
+fn format_parts(
+    method: &Method,
+    url: &str,
+    headers: &[(String, String)],
+    body: Option<&str>,
+) -> String {
+    let mut lines = vec![format!("{method} {url}")];
+
+    if !headers.is_empty() {
         lines.push(String::new());
-        for (name, value) in &request.headers {
+        for (name, value) in headers {
             lines.push(format!("{name}: {value}"));
         }
     }
 
-    if let Some(body) = &request.body {
+    if let Some(body) = body {
         lines.push(String::new());
-        lines.push(body.clone());
+        lines.push(body.to_string());
     }
 
     lines.join("\n")
@@ -108,6 +135,114 @@ mod tests {
         let text = format_request(&req);
 
         assert_eq!(text, "GET https://example.com");
+    }
+
+    #[test]
+    fn test_format_request_detail_resolves_variables() {
+        let req = ParsedRequest {
+            name: Some("Get".to_string()),
+            method: Method::Get,
+            url: "{{host}}/get".to_string(),
+            headers: vec![
+                ("Accept".to_string(), "{{content_type}}".to_string()),
+                ("Authorization".to_string(), "Bearer {{token}}".to_string()),
+            ],
+            body: Some("{\"user\": \"{{username}}\"}".to_string()),
+            source_line: 1,
+        };
+        let variables = vec![
+            Variable {
+                name: "host".to_string(),
+                value: "https://httpbin.org".to_string(),
+            },
+            Variable {
+                name: "content_type".to_string(),
+                value: "application/json".to_string(),
+            },
+            Variable {
+                name: "token".to_string(),
+                value: "abc123".to_string(),
+            },
+            Variable {
+                name: "username".to_string(),
+                value: "alice".to_string(),
+            },
+        ];
+
+        let text = format_request_detail(&variables, &req);
+
+        assert_eq!(
+            text,
+            "GET https://httpbin.org/get\n\nAccept: application/json\nAuthorization: Bearer abc123\n\n{\"user\": \"alice\"}"
+        );
+    }
+
+    #[test]
+    fn test_format_request_detail_resolves_transitive_variables() {
+        let req = ParsedRequest {
+            name: Some("Get".to_string()),
+            method: Method::Get,
+            url: "{{origin}}/ping".to_string(),
+            headers: vec![],
+            body: None,
+            source_line: 1,
+        };
+        let variables = vec![
+            Variable {
+                name: "host".to_string(),
+                value: "httpbin.org".to_string(),
+            },
+            Variable {
+                name: "origin".to_string(),
+                value: "https://{{host}}".to_string(),
+            },
+        ];
+
+        let text = format_request_detail(&variables, &req);
+
+        assert_eq!(text, "GET https://httpbin.org/ping");
+    }
+
+    #[test]
+    fn test_format_request_detail_falls_back_to_raw_on_undefined_variable() {
+        let req = ParsedRequest {
+            name: Some("Get".to_string()),
+            method: Method::Get,
+            url: "{{missing}}/get".to_string(),
+            headers: vec![],
+            body: None,
+            source_line: 1,
+        };
+
+        let text = format_request_detail(&[], &req);
+
+        assert_eq!(text, "GET {{missing}}/get");
+    }
+
+    #[test]
+    fn test_format_request_detail_falls_back_to_raw_on_circular_variable() {
+        let req = ParsedRequest {
+            name: Some("Get".to_string()),
+            method: Method::Get,
+            url: "{{a}}/get".to_string(),
+            headers: vec![],
+            body: None,
+            source_line: 1,
+        };
+        let variables = vec![
+            Variable {
+                name: "a".to_string(),
+                value: "{{b}}".to_string(),
+            },
+            Variable {
+                name: "b".to_string(),
+                value: "{{a}}".to_string(),
+            },
+        ];
+
+        let text = format_request_detail(&variables, &req);
+
+        assert_eq!(text, "GET {{a}}/get");
     }
 
     #[test]

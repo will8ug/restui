@@ -139,7 +139,7 @@ impl App {
         match areas.request_detail {
             Some(detail_area) if !self.requests.is_empty() => {
                 let inner = detail_area.inner(Margin::new(1, 1));
-                content::format_request(&self.requests[self.selected_index])
+                content::format_request_detail(&self.variables, &self.requests[self.selected_index])
                     .lines()
                     .count()
                     .saturating_sub(usize::from(inner.height))
@@ -153,7 +153,8 @@ impl App {
         match areas.request_detail {
             Some(detail_area) if !self.requests.is_empty() => {
                 let inner = detail_area.inner(Margin::new(1, 1));
-                content::max_line_width(&content::format_request(
+                content::max_line_width(&content::format_request_detail(
+                    &self.variables,
                     &self.requests[self.selected_index],
                 ))
                 .saturating_sub(usize::from(inner.width))
@@ -1178,6 +1179,44 @@ mod tests {
         app.update(Message::Resize(80, 20));
 
         assert!(app.detail_max_scroll() > 0);
+    }
+
+    #[test]
+    fn test_detail_max_scroll_counts_resolved_lines() {
+        let req = ParsedRequest {
+            name: Some("Bulk".to_string()),
+            method: Method::Get,
+            url: "https://example.com".to_string(),
+            headers: vec![],
+            body: Some("{{payload}}".to_string()),
+            source_line: 1,
+        };
+        let mut app = app_with_requests(vec![req]);
+        app.show_request_detail = true;
+        app.update(Message::Resize(80, 20));
+
+        assert_eq!(app.detail_max_scroll(), 0);
+
+        app.variables = vec![variable(
+            "payload",
+            &(0..60)
+                .map(|line| format!("line {line}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )];
+
+        assert!(app.detail_max_scroll() > 0);
+    }
+
+    #[test]
+    fn test_detail_max_scroll_x_uses_resolved_text() {
+        let mut app = app_with_requests(vec![request("{{host}}/get")]);
+        app.show_request_detail = true;
+        app.variables = vec![variable("host", &format!("https://{}", "x".repeat(120)))];
+
+        app.update(Message::Resize(80, 20));
+
+        assert!(app.detail_max_scroll_x() > 0);
     }
 
     #[test]
