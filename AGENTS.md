@@ -6,6 +6,10 @@ Guidance for coding agents (and humans) working in this repository.
 
 Never bump the version in `Cargo.toml` unless explicitly asked. Releases are cut manually by the maintainer: implement, verify, and leave the version untouched.
 
+## Status bar
+
+`KEY_HINTS` in `src/ui/status_bar.rs` shows at most 6 shortcuts, separated by ` │ `, and must fit an 80-column terminal. When adding a keybinding, replace the least essential hint rather than adding a seventh or tightening the separators.
+
 ## Comments
 
 Prefer self-documenting code over comments. Only add comments for knowledge that cannot be expressed in the code itself.

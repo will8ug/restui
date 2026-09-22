@@ -22,6 +22,8 @@ pub enum Message {
     ReloadFile,
     ToggleHelp,
     ToggleRequestDetail,
+    ToggleFullscreen,
+    ExitFullscreen,
     Quit,
     Resize(u16, u16),
 }

@@ -15,6 +15,8 @@ const HELP_TEXT: &str = "\
  Actions
    Enter     Send selected request
    d         Toggle request detail
+   f         Toggle fullscreen of focused pane
+   Esc       Exit fullscreen
    R         Reload file from disk
 
  Application
@@ -36,8 +38,8 @@ pub fn render(frame: &mut Frame) {
 }
 
 fn centered_rect(area: Rect) -> Rect {
-    let width = (area.width * 60 / 100).max(40).min(area.width);
-    let height = (area.height * 70 / 100).max(20).min(area.height);
+    let width = (area.width * 60 / 100).max(50).min(area.width);
+    let height = (area.height * 70 / 100).max(24).min(area.height);
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect::new(x, y, width, height)
@@ -125,6 +127,25 @@ mod tests {
 
         assert!(text.contains("0 / $ / Home / End"));
         assert!(text.contains("Jump to start / end horizontally"));
+    }
+
+    #[test]
+    fn test_help_overlay_documents_fullscreen_keys() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(render).unwrap();
+        let buffer = terminal.backend().buffer();
+        let text: String = (0..buffer.area().height)
+            .map(|y| {
+                (0..buffer.area().width)
+                    .map(|x| buffer[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(text.contains("Toggle fullscreen of focused pane"));
+        assert!(text.contains("Exit fullscreen"));
     }
 
     #[test]

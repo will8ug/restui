@@ -179,7 +179,9 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
         KeyCode::Tab => Some(Message::ToggleFocus),
         KeyCode::Char('R') => Some(Message::ReloadFile),
         KeyCode::Char('d') => Some(Message::ToggleRequestDetail),
+        KeyCode::Char('f') => Some(Message::ToggleFullscreen),
         KeyCode::Char('?') => Some(Message::ToggleHelp),
+        KeyCode::Esc => Some(Message::ExitFullscreen),
         KeyCode::Char('q') => Some(Message::Quit),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Message::Quit),
         _ => None,
@@ -378,5 +380,42 @@ mod tests {
         assert!(key_message(dollar, Focus::RequestList, true).is_none());
         assert!(key_message(home, Focus::ResponsePane, true).is_none());
         assert!(key_message(end, Focus::ResponsePane, true).is_none());
+    }
+
+    #[test]
+    fn test_f_toggles_fullscreen() {
+        let event = KeyEvent::from(KeyCode::Char('f'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::ToggleFullscreen)
+        ));
+    }
+
+    #[test]
+    fn test_esc_exits_fullscreen_when_help_closed() {
+        let event = KeyEvent::from(KeyCode::Esc);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false),
+            Some(Message::ExitFullscreen)
+        ));
+    }
+
+    #[test]
+    fn test_f_ignored_when_help_visible() {
+        let event = KeyEvent::from(KeyCode::Char('f'));
+
+        assert!(key_message(event, Focus::RequestList, true).is_none());
+    }
+
+    #[test]
+    fn test_esc_closes_help_when_help_visible() {
+        let event = KeyEvent::from(KeyCode::Esc);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, true),
+            Some(Message::ToggleHelp)
+        ));
     }
 }

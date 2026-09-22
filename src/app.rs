@@ -38,6 +38,7 @@ pub struct App {
     pub size: (u16, u16),
     pub last_sent_index: Option<usize>,
     pub show_help: bool,
+    pub fullscreen: bool,
     pub show_request_detail: bool,
     pub detail_scroll_offset: usize,
     pub list_scroll_offset_x: usize,
@@ -59,6 +60,7 @@ impl App {
             size: (0, 0),
             last_sent_index: None,
             show_help: false,
+            fullscreen: false,
             show_request_detail: false,
             detail_scroll_offset: 0,
             list_scroll_offset_x: 0,
@@ -106,7 +108,11 @@ impl App {
     }
 
     pub fn response_max_scroll(&self) -> usize {
-        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let areas = layout::pane_areas(
+            self.size,
+            self.show_request_detail,
+            self.fullscreen.then_some(self.focus),
+        );
         let inner = areas.response_pane.inner(Margin::new(1, 1));
         let line_count = match &self.status {
             AppStatus::Error(message) => {
@@ -121,7 +127,11 @@ impl App {
     }
 
     pub fn response_max_scroll_x(&self) -> usize {
-        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let areas = layout::pane_areas(
+            self.size,
+            self.show_request_detail,
+            self.fullscreen.then_some(self.focus),
+        );
         let inner = areas.response_pane.inner(Margin::new(1, 1));
         match &self.status {
             // Error text renders wrapped, so it never overflows horizontally.
@@ -135,7 +145,11 @@ impl App {
     }
 
     pub fn detail_max_scroll(&self) -> usize {
-        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let areas = layout::pane_areas(
+            self.size,
+            self.show_request_detail,
+            self.fullscreen.then_some(self.focus),
+        );
         match areas.request_detail {
             Some(detail_area) if !self.requests.is_empty() => {
                 let inner = detail_area.inner(Margin::new(1, 1));
@@ -149,7 +163,11 @@ impl App {
     }
 
     pub fn detail_max_scroll_x(&self) -> usize {
-        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let areas = layout::pane_areas(
+            self.size,
+            self.show_request_detail,
+            self.fullscreen.then_some(self.focus),
+        );
         match areas.request_detail {
             Some(detail_area) if !self.requests.is_empty() => {
                 let inner = detail_area.inner(Margin::new(1, 1));
@@ -164,7 +182,11 @@ impl App {
     }
 
     pub fn list_max_scroll_x(&self) -> usize {
-        let areas = layout::pane_areas(self.size, self.show_request_detail);
+        let areas = layout::pane_areas(
+            self.size,
+            self.show_request_detail,
+            self.fullscreen.then_some(self.focus),
+        );
         let inner = areas.request_list.inner(Margin::new(1, 1));
         self.requests
             .iter()
@@ -368,6 +390,14 @@ impl App {
                 if !self.show_request_detail && self.focus == Focus::RequestDetail {
                     self.focus = Focus::RequestList;
                 }
+                Command::None
+            }
+            Message::ToggleFullscreen => {
+                self.fullscreen = !self.fullscreen;
+                Command::None
+            }
+            Message::ExitFullscreen => {
+                self.fullscreen = false;
                 Command::None
             }
             Message::Quit => Command::Quit,
@@ -1420,5 +1450,64 @@ mod tests {
         app.update(Message::Resize(80, 20));
 
         assert_eq!(app.list_max_scroll_x(), 0);
+    }
+
+    #[test]
+    fn test_toggle_fullscreen_flips_state() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        let command = app.update(Message::ToggleFullscreen);
+
+        assert!(matches!(command, Command::None));
+        assert!(app.fullscreen);
+
+        app.update(Message::ToggleFullscreen);
+
+        assert!(!app.fullscreen);
+    }
+
+    #[test]
+    fn test_exit_fullscreen_sets_false() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.fullscreen = true;
+
+        let command = app.update(Message::ExitFullscreen);
+
+        assert!(matches!(command, Command::None));
+        assert!(!app.fullscreen);
+    }
+
+    #[test]
+    fn test_exit_fullscreen_is_noop_when_not_fullscreen() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        app.update(Message::ExitFullscreen);
+
+        assert!(!app.fullscreen);
+    }
+
+    #[test]
+    fn test_toggle_focus_while_fullscreen_keeps_fullscreen() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.fullscreen = true;
+
+        app.update(Message::ToggleFocus);
+
+        assert_eq!(app.focus, Focus::ResponsePane);
+        assert!(app.fullscreen);
+    }
+
+    #[test]
+    fn test_toggle_request_detail_off_while_fullscreen_demotes_focus_and_keeps_fullscreen() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.fullscreen = true;
+
+        app.update(Message::ToggleRequestDetail);
+
+        assert!(!app.show_request_detail);
+        assert_eq!(app.focus, Focus::RequestList);
+        assert!(app.fullscreen);
     }
 }

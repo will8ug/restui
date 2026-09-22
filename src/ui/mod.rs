@@ -12,7 +12,11 @@ use crate::app::App;
 
 pub fn view(app: &App, frame: &mut Frame) {
     let area = frame.area();
-    let panes = crate::layout::pane_areas((area.width, area.height), app.show_request_detail);
+    let panes = crate::layout::pane_areas(
+        (area.width, area.height),
+        app.show_request_detail,
+        app.fullscreen.then_some(app.focus),
+    );
 
     let chrome = Layout::default()
         .direction(Direction::Vertical)
@@ -131,6 +135,47 @@ mod tests {
 
         assert!(!text.contains("Request Detail"));
         assert!(text.contains("Response"));
+    }
+
+    #[test]
+    fn test_fullscreen_request_list_renders_alone() {
+        let mut app = app();
+        app.fullscreen = true;
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Requests"));
+        assert!(!text.contains("Response"));
+        assert!(text.contains("restui - requests.http"));
+        assert!(text.contains("[?] Help"));
+    }
+
+    #[test]
+    fn test_fullscreen_response_pane_renders_alone() {
+        let mut app = app();
+        app.focus = Focus::ResponsePane;
+        app.fullscreen = true;
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Response"));
+        assert!(!text.contains("Requests"));
+        assert!(text.contains("restui - requests.http"));
+        assert!(text.contains("[?] Help"));
+    }
+
+    #[test]
+    fn test_fullscreen_request_detail_renders_alone() {
+        let mut app = app();
+        app.show_request_detail = true;
+        app.focus = Focus::RequestDetail;
+        app.fullscreen = true;
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Request Detail"));
+        assert!(!text.contains("Requests"));
+        assert!(!text.contains("Response"));
     }
 
     #[test]

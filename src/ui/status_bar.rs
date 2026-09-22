@@ -103,6 +103,7 @@ mod tests {
             size: (0, 0),
             last_sent_index: None,
             show_help: false,
+            fullscreen: false,
             show_request_detail: false,
             detail_scroll_offset: 0,
             list_scroll_offset_x: 0,
