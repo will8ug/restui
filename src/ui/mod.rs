@@ -190,7 +190,7 @@ mod tests {
         assert!(text.contains("[Enter] Send"));
         assert!(text.contains("[Tab] Focus"));
         assert!(text.contains("[?] Help"));
-        assert!(text.contains("[o] Open"));
+        assert!(text.contains("[q] Quit"));
     }
 
     #[test]

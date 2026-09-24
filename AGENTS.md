@@ -8,7 +8,7 @@ Never bump the version in `Cargo.toml` unless explicitly asked. Releases are cut
 
 ## Status bar
 
-`KEY_HINTS` in `src/ui/status_bar.rs` shows at most 6 shortcuts, separated by ` │ `, and must fit an 80-column terminal. When adding a keybinding, replace the least essential hint rather than adding a seventh or tightening the separators.
+`KEY_HINTS` in `src/ui/status_bar.rs` shows at most 6 shortcuts, separated by ` │ `, and must fit an 80-column terminal. Which shortcuts appear in this list is a maintainer decision: never add, remove, or swap hints unless explicitly asked. Document new keybindings in the help overlay and README instead.
 
 ## Comments
 

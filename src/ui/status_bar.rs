@@ -8,7 +8,7 @@ use ratatui::widgets::Paragraph;
 use crate::app::{App, AppStatus};
 
 const KEY_HINTS: &str =
-    "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [o] Open";
+    "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit";
 
 const RELOAD_HINT_DURATION: Duration = Duration::from_secs(3);
 
@@ -153,7 +153,7 @@ mod tests {
         let text = buffer_text(&backend);
 
         assert!(text.contains(
-            "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [o] Open"
+            "[↑↓←→] Nav │ [Enter] Send │ [Tab] Focus │ [d] Detail │ [?] Help │ [q] Quit"
         ));
     }
 
