@@ -87,7 +87,12 @@ fn run() -> Result<(), Box<dyn Error>> {
         let mut pending_messages = Vec::new();
 
         if event::poll(Duration::from_millis(50))?
-            && let Some(message) = event_message(event::read()?, app.focus, app.show_help)
+            && let Some(message) = event_message(
+                event::read()?,
+                app.focus,
+                app.show_help,
+                app.open_file_prompt.is_some(),
+            )
         {
             pending_messages.push(message);
         }
@@ -130,17 +135,36 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn event_message(event: Event, focus: Focus, show_help: bool) -> Option<Message> {
+fn event_message(
+    event: Event,
+    focus: Focus,
+    show_help: bool,
+    prompt_open: bool,
+) -> Option<Message> {
     match event {
-        Event::Key(key) => key_message(key, focus, show_help),
+        Event::Key(key) => key_message(key, focus, show_help, prompt_open),
         Event::Resize(width, height) => Some(Message::Resize(width, height)),
         _ => None,
     }
 }
 
-fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> {
+fn key_message(key: KeyEvent, focus: Focus, show_help: bool, prompt_open: bool) -> Option<Message> {
     if key.kind != KeyEventKind::Press {
         return None;
+    }
+
+    if prompt_open {
+        return match key.code {
+            KeyCode::Char(c)
+                if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
+            {
+                Some(Message::FileInputChar(c))
+            }
+            KeyCode::Backspace => Some(Message::FileInputBackspace),
+            KeyCode::Enter => Some(Message::FileInputSubmit),
+            KeyCode::Esc => Some(Message::FileInputCancel),
+            _ => None,
+        };
     }
 
     if show_help {
@@ -180,6 +204,7 @@ fn key_message(key: KeyEvent, focus: Focus, show_help: bool) -> Option<Message> 
         KeyCode::Char('R') => Some(Message::ReloadFile),
         KeyCode::Char('d') => Some(Message::ToggleRequestDetail),
         KeyCode::Char('f') => Some(Message::ToggleFullscreen),
+        KeyCode::Char('o') => Some(Message::OpenFile),
         KeyCode::Char('?') => Some(Message::ToggleHelp),
         KeyCode::Esc => Some(Message::ExitFullscreen),
         KeyCode::Char('q') => Some(Message::Quit),
@@ -226,7 +251,7 @@ mod tests {
         let event = KeyEvent::new(KeyCode::Char('R'), KeyModifiers::SHIFT);
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::ReloadFile)
         ));
     }
@@ -238,7 +263,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('R'));
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::ReloadFile)
         ));
     }
@@ -247,7 +272,7 @@ mod tests {
     fn test_lowercase_r_is_unbound() {
         let event = KeyEvent::from(KeyCode::Char('r'));
 
-        assert!(key_message(event, Focus::RequestList, false).is_none());
+        assert!(key_message(event, Focus::RequestList, false, false).is_none());
     }
 
     #[test]
@@ -255,7 +280,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('g'));
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::SelectFirst)
         ));
     }
@@ -265,7 +290,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('g'));
 
         assert!(matches!(
-            key_message(event, Focus::RequestDetail, false),
+            key_message(event, Focus::RequestDetail, false, false),
             Some(Message::ScrollTop)
         ));
     }
@@ -275,7 +300,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('g'));
 
         assert!(matches!(
-            key_message(event, Focus::ResponsePane, false),
+            key_message(event, Focus::ResponsePane, false, false),
             Some(Message::ScrollTop)
         ));
     }
@@ -285,7 +310,7 @@ mod tests {
         let event = KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT);
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::SelectLast)
         ));
     }
@@ -295,7 +320,7 @@ mod tests {
         let event = KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT);
 
         assert!(matches!(
-            key_message(event, Focus::RequestDetail, false),
+            key_message(event, Focus::RequestDetail, false, false),
             Some(Message::ScrollBottom)
         ));
     }
@@ -305,7 +330,7 @@ mod tests {
         let event = KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT);
 
         assert!(matches!(
-            key_message(event, Focus::ResponsePane, false),
+            key_message(event, Focus::ResponsePane, false, false),
             Some(Message::ScrollBottom)
         ));
     }
@@ -315,7 +340,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('G'));
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::SelectLast)
         ));
     }
@@ -325,8 +350,8 @@ mod tests {
         let g = KeyEvent::from(KeyCode::Char('g'));
         let uppercase_g = KeyEvent::from(KeyCode::Char('G'));
 
-        assert!(key_message(g, Focus::RequestList, true).is_none());
-        assert!(key_message(uppercase_g, Focus::ResponsePane, true).is_none());
+        assert!(key_message(g, Focus::RequestList, true, false).is_none());
+        assert!(key_message(uppercase_g, Focus::ResponsePane, true, false).is_none());
     }
 
     #[test]
@@ -334,7 +359,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Home);
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::ScrollStart)
         ));
     }
@@ -344,7 +369,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('0'));
 
         assert!(matches!(
-            key_message(event, Focus::ResponsePane, false),
+            key_message(event, Focus::ResponsePane, false, false),
             Some(Message::ScrollStart)
         ));
     }
@@ -354,7 +379,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::End);
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::ScrollEnd)
         ));
     }
@@ -364,7 +389,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('$'));
 
         assert!(matches!(
-            key_message(event, Focus::ResponsePane, false),
+            key_message(event, Focus::ResponsePane, false, false),
             Some(Message::ScrollEnd)
         ));
     }
@@ -376,10 +401,10 @@ mod tests {
         let home = KeyEvent::from(KeyCode::Home);
         let end = KeyEvent::from(KeyCode::End);
 
-        assert!(key_message(zero, Focus::RequestList, true).is_none());
-        assert!(key_message(dollar, Focus::RequestList, true).is_none());
-        assert!(key_message(home, Focus::ResponsePane, true).is_none());
-        assert!(key_message(end, Focus::ResponsePane, true).is_none());
+        assert!(key_message(zero, Focus::RequestList, true, false).is_none());
+        assert!(key_message(dollar, Focus::RequestList, true, false).is_none());
+        assert!(key_message(home, Focus::ResponsePane, true, false).is_none());
+        assert!(key_message(end, Focus::ResponsePane, true, false).is_none());
     }
 
     #[test]
@@ -387,7 +412,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Char('f'));
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::ToggleFullscreen)
         ));
     }
@@ -397,7 +422,7 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Esc);
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, false),
+            key_message(event, Focus::RequestList, false, false),
             Some(Message::ExitFullscreen)
         ));
     }
@@ -406,7 +431,7 @@ mod tests {
     fn test_f_ignored_when_help_visible() {
         let event = KeyEvent::from(KeyCode::Char('f'));
 
-        assert!(key_message(event, Focus::RequestList, true).is_none());
+        assert!(key_message(event, Focus::RequestList, true, false).is_none());
     }
 
     #[test]
@@ -414,8 +439,105 @@ mod tests {
         let event = KeyEvent::from(KeyCode::Esc);
 
         assert!(matches!(
-            key_message(event, Focus::RequestList, true),
+            key_message(event, Focus::RequestList, true, false),
             Some(Message::ToggleHelp)
         ));
+    }
+
+    #[test]
+    fn test_o_opens_file_prompt() {
+        let event = KeyEvent::from(KeyCode::Char('o'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, false),
+            Some(Message::OpenFile)
+        ));
+    }
+
+    #[test]
+    fn test_o_ignored_when_help_visible() {
+        let event = KeyEvent::from(KeyCode::Char('o'));
+
+        assert!(key_message(event, Focus::RequestList, true, false).is_none());
+    }
+
+    #[test]
+    fn test_prompt_captures_q_as_char() {
+        let event = KeyEvent::from(KeyCode::Char('q'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, true),
+            Some(Message::FileInputChar('q'))
+        ));
+    }
+
+    #[test]
+    fn test_prompt_captures_o_as_char() {
+        let event = KeyEvent::from(KeyCode::Char('o'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, true),
+            Some(Message::FileInputChar('o'))
+        ));
+    }
+
+    #[test]
+    fn test_prompt_captures_question_mark_as_char() {
+        let event = KeyEvent::from(KeyCode::Char('?'));
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, true),
+            Some(Message::FileInputChar('?'))
+        ));
+    }
+
+    #[test]
+    fn test_prompt_backspace_deletes_char() {
+        let event = KeyEvent::from(KeyCode::Backspace);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, true),
+            Some(Message::FileInputBackspace)
+        ));
+    }
+
+    #[test]
+    fn test_prompt_enter_submits() {
+        let event = KeyEvent::from(KeyCode::Enter);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, true),
+            Some(Message::FileInputSubmit)
+        ));
+    }
+
+    #[test]
+    fn test_prompt_esc_cancels() {
+        let event = KeyEvent::from(KeyCode::Esc);
+
+        assert!(matches!(
+            key_message(event, Focus::RequestList, false, true),
+            Some(Message::FileInputCancel)
+        ));
+    }
+
+    #[test]
+    fn test_prompt_swallows_arrow_keys() {
+        let up = KeyEvent::from(KeyCode::Up);
+        let down = KeyEvent::from(KeyCode::Down);
+        let left = KeyEvent::from(KeyCode::Left);
+        let right = KeyEvent::from(KeyCode::Right);
+
+        assert!(key_message(up, Focus::RequestList, false, true).is_none());
+        assert!(key_message(down, Focus::RequestList, false, true).is_none());
+        assert!(key_message(left, Focus::RequestList, false, true).is_none());
+        assert!(key_message(right, Focus::RequestList, false, true).is_none());
+    }
+
+    #[test]
+    fn test_prompt_swallows_ctrl_c() {
+        let event = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+
+        assert!(key_message(event, Focus::RequestList, false, true).is_none());
     }
 }

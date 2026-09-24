@@ -16,8 +16,9 @@ const HELP_TEXT: &str = "\
    Enter     Send selected request
    d         Toggle request detail
    f         Toggle fullscreen of focused pane
-   Esc       Exit fullscreen
-   R         Reload file from disk
+    Esc       Exit fullscreen
+    R         Reload file from disk
+    o         Open another .http file
 
  Application
    ?         Toggle this help
@@ -146,6 +147,24 @@ mod tests {
 
         assert!(text.contains("Toggle fullscreen of focused pane"));
         assert!(text.contains("Exit fullscreen"));
+    }
+
+    #[test]
+    fn test_help_overlay_documents_open_file_key() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(render).unwrap();
+        let buffer = terminal.backend().buffer();
+        let text: String = (0..buffer.area().height)
+            .map(|y| {
+                (0..buffer.area().width)
+                    .map(|x| buffer[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(text.contains("Open another .http file"));
     }
 
     #[test]

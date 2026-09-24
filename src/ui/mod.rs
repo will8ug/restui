@@ -1,4 +1,5 @@
 pub mod help_overlay;
+pub mod open_file_prompt;
 pub mod request_detail;
 pub mod request_list;
 pub mod response_pane;
@@ -42,6 +43,10 @@ pub fn view(app: &App, frame: &mut Frame) {
     }
     response_pane::render(app, frame, panes.response_pane);
     status_bar::render(app, frame, chrome[2]);
+
+    if let Some(input) = &app.open_file_prompt {
+        open_file_prompt::render(frame, input, app.open_file_error.as_deref());
+    }
 
     if app.show_help {
         help_overlay::render(frame);
@@ -185,7 +190,7 @@ mod tests {
         assert!(text.contains("[Enter] Send"));
         assert!(text.contains("[Tab] Focus"));
         assert!(text.contains("[?] Help"));
-        assert!(text.contains("[q] Quit"));
+        assert!(text.contains("[o] Open"));
     }
 
     #[test]
@@ -206,6 +211,37 @@ mod tests {
         let text = render_text(&app);
 
         assert!(!text.contains("Help (? or Esc to close)"));
+    }
+
+    #[test]
+    fn test_open_file_prompt_renders_when_open() {
+        let mut app = app();
+        app.open_file_prompt = Some("./api.http".to_string());
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Open file"));
+        assert!(text.contains("./api.http"));
+    }
+
+    #[test]
+    fn test_open_file_prompt_renders_error_inline() {
+        let mut app = app();
+        app.open_file_prompt = Some("./missing.http".to_string());
+        app.open_file_error = Some("Failed to read ./missing.http".to_string());
+
+        let text = render_text(&app);
+
+        assert!(text.contains("Failed to read ./missing.http"));
+    }
+
+    #[test]
+    fn test_open_file_prompt_hidden_by_default() {
+        let app = app();
+
+        let text = render_text(&app);
+
+        assert!(!text.contains("Open file"));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use ratatui::layout::Margin;
@@ -38,6 +38,8 @@ pub struct App {
     pub size: (u16, u16),
     pub last_sent_index: Option<usize>,
     pub show_help: bool,
+    pub open_file_prompt: Option<String>,
+    pub open_file_error: Option<String>,
     pub fullscreen: bool,
     pub show_request_detail: bool,
     pub detail_scroll_offset: usize,
@@ -60,6 +62,8 @@ impl App {
             size: (0, 0),
             last_sent_index: None,
             show_help: false,
+            open_file_prompt: None,
+            open_file_error: None,
             fullscreen: false,
             show_request_detail: false,
             detail_scroll_offset: 0,
@@ -70,31 +74,29 @@ impl App {
     }
 
     pub fn reload(&mut self) {
-        match fs::read_to_string(&self.file_path) {
-            Ok(contents) => match parser::parse(&contents) {
-                Ok(parsed_file) => {
-                    self.requests = parsed_file.requests;
-                    self.variables = parsed_file.variables;
-                    self.selected_index = match self.requests.len() {
-                        0 => 0,
-                        len => self.selected_index.min(len.saturating_sub(1)),
-                    };
-                    self.last_sent_index = self
-                        .last_sent_index
-                        .filter(|index| *index < self.requests.len());
-                    self.status = AppStatus::Reloaded(Instant::now());
-                }
-                Err(error) => {
-                    self.set_error(error.to_string());
-                }
-            },
-            Err(error) => {
-                self.set_error(format!(
-                    "Failed to read {}: {error}",
-                    self.file_path.display()
-                ));
-            }
+        let path = self.file_path.clone();
+        if let Err(message) = self.load_file(&path) {
+            self.set_error(message);
         }
+    }
+
+    fn load_file(&mut self, path: &Path) -> Result<(), String> {
+        let contents = fs::read_to_string(path)
+            .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
+        let parsed_file = parser::parse(&contents).map_err(|error| error.to_string())?;
+
+        self.requests = parsed_file.requests;
+        self.variables = parsed_file.variables;
+        self.selected_index = match self.requests.len() {
+            0 => 0,
+            len => self.selected_index.min(len.saturating_sub(1)),
+        };
+        self.last_sent_index = self
+            .last_sent_index
+            .filter(|index| *index < self.requests.len());
+        self.file_path = path.to_path_buf();
+        self.status = AppStatus::Reloaded(Instant::now());
+        Ok(())
     }
 
     pub fn update(&mut self, msg: Message) -> Command {
@@ -381,6 +383,43 @@ impl App {
                 self.reload();
                 Command::None
             }
+            Message::OpenFile => {
+                self.open_file_error = None;
+                self.open_file_prompt = Some(open_file_prefill(&self.file_path));
+                Command::None
+            }
+            Message::FileInputChar(character) => {
+                if let Some(buffer) = &mut self.open_file_prompt {
+                    buffer.push(character);
+                    self.open_file_error = None;
+                }
+                Command::None
+            }
+            Message::FileInputBackspace => {
+                if let Some(buffer) = &mut self.open_file_prompt {
+                    buffer.pop();
+                    self.open_file_error = None;
+                }
+                Command::None
+            }
+            Message::FileInputSubmit => {
+                if let Some(buffer) = self.open_file_prompt.take() {
+                    let path = resolve_open_file_path(&self.file_path, &buffer);
+                    match self.load_file(&path) {
+                        Ok(()) => self.open_file_error = None,
+                        Err(message) => {
+                            self.open_file_prompt = Some(buffer);
+                            self.open_file_error = Some(message);
+                        }
+                    }
+                }
+                Command::None
+            }
+            Message::FileInputCancel => {
+                self.open_file_prompt = None;
+                self.open_file_error = None;
+                Command::None
+            }
             Message::ToggleHelp => {
                 self.show_help = !self.show_help;
                 Command::None
@@ -419,6 +458,26 @@ impl App {
             | Message::ScrollRight => Command::None,
         }
     }
+}
+
+fn open_file_prefill(file_path: &Path) -> String {
+    match file_path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => format!("{}/", parent.display()),
+        _ => "./".to_string(),
+    }
+}
+
+fn resolve_open_file_path(current_file: &Path, input: &str) -> PathBuf {
+    let input = Path::new(input);
+    if input.is_absolute() {
+        return input.to_path_buf();
+    }
+
+    let base = current_file
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    base.join(input)
 }
 
 #[cfg(test)]
@@ -1509,5 +1568,249 @@ mod tests {
         assert!(!app.show_request_detail);
         assert_eq!(app.focus, Focus::RequestList);
         assert!(app.fullscreen);
+    }
+
+    #[test]
+    fn test_open_file_prefills_current_directory() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.file_path = PathBuf::from("/tmp/restui-dir/requests.http");
+
+        app.update(Message::OpenFile);
+
+        assert_eq!(app.open_file_prompt, Some("/tmp/restui-dir/".to_string()));
+    }
+
+    #[test]
+    fn test_open_file_prefills_dot_when_file_has_no_parent() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.file_path = PathBuf::from("api.http");
+
+        app.update(Message::OpenFile);
+
+        assert_eq!(app.open_file_prompt, Some("./".to_string()));
+    }
+
+    #[test]
+    fn test_open_file_clears_previous_error() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.open_file_error = Some("stale failure".to_string());
+
+        app.update(Message::OpenFile);
+
+        assert_eq!(app.open_file_error, None);
+    }
+
+    #[test]
+    fn test_file_input_char_appends_to_buffer() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.open_file_prompt = Some("./api".to_string());
+
+        app.update(Message::FileInputChar('.'));
+        app.update(Message::FileInputChar('h'));
+
+        assert_eq!(app.open_file_prompt, Some("./api.h".to_string()));
+    }
+
+    #[test]
+    fn test_file_input_char_clears_error() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.open_file_prompt = Some("./".to_string());
+        app.open_file_error = Some("stale failure".to_string());
+
+        app.update(Message::FileInputChar('a'));
+
+        assert_eq!(app.open_file_error, None);
+    }
+
+    #[test]
+    fn test_file_input_backspace_removes_last_char() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.open_file_prompt = Some("./api.http".to_string());
+
+        app.update(Message::FileInputBackspace);
+
+        assert_eq!(app.open_file_prompt, Some("./api.htt".to_string()));
+    }
+
+    #[test]
+    fn test_file_input_backspace_on_empty_buffer_is_noop() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.open_file_prompt = Some(String::new());
+
+        app.update(Message::FileInputBackspace);
+
+        assert_eq!(app.open_file_prompt, Some(String::new()));
+    }
+
+    #[test]
+    fn test_file_input_messages_ignored_when_prompt_closed() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+
+        let command = app.update(Message::FileInputChar('x'));
+
+        assert!(matches!(command, Command::None));
+        assert_eq!(app.open_file_prompt, None);
+
+        app.update(Message::FileInputBackspace);
+        app.update(Message::FileInputSubmit);
+
+        assert_eq!(app.open_file_prompt, None);
+        assert_eq!(app.open_file_error, None);
+    }
+
+    #[test]
+    fn test_file_input_cancel_closes_prompt_and_clears_error() {
+        let mut app = app_with_requests(vec![request("https://example.com")]);
+        app.open_file_prompt = Some("./other.http".to_string());
+        app.open_file_error = Some("stale failure".to_string());
+
+        app.update(Message::FileInputCancel);
+
+        assert_eq!(app.open_file_prompt, None);
+        assert_eq!(app.open_file_error, None);
+        assert_eq!(app.requests, vec![request("https://example.com")]);
+        assert_eq!(app.file_path, PathBuf::from("requests.http"));
+        assert_eq!(app.status, AppStatus::Idle);
+    }
+
+    #[test]
+    fn test_file_input_submit_loads_second_file() {
+        let second_path = temp_file_path("open-second");
+        fs::write(
+            &second_path,
+            "@token = secret\n\n### Second\nGET https://second.example.com/items",
+        )
+        .expect("should write temp request file");
+
+        let mut app = app_with_requests(vec![request("https://first.example.com")]);
+        app.open_file_prompt = Some(second_path.display().to_string());
+
+        app.update(Message::FileInputSubmit);
+
+        assert_eq!(app.open_file_prompt, None);
+        assert_eq!(app.open_file_error, None);
+        assert_eq!(app.file_path, second_path);
+        assert_eq!(app.requests.len(), 1);
+        assert_eq!(app.requests[0].url, "https://second.example.com/items");
+        assert_eq!(app.variables.len(), 1);
+        assert_eq!(app.variables[0].name, "token");
+        assert!(matches!(app.status, AppStatus::Reloaded(_)));
+
+        fs::remove_file(&second_path).expect("should remove temp request file");
+    }
+
+    #[test]
+    fn test_file_input_submit_nonexistent_file_keeps_prompt_open() {
+        let missing_path = temp_file_path("open-missing");
+        let mut app = app_with_requests(vec![request("https://first.example.com")]);
+        app.open_file_prompt = Some(missing_path.display().to_string());
+
+        app.update(Message::FileInputSubmit);
+
+        assert_eq!(
+            app.open_file_prompt,
+            Some(missing_path.display().to_string())
+        );
+        assert!(app.open_file_error.is_some());
+        assert!(!matches!(app.status, AppStatus::Error(_)));
+        assert_eq!(app.requests, vec![request("https://first.example.com")]);
+        assert_eq!(app.file_path, PathBuf::from("requests.http"));
+    }
+
+    #[test]
+    fn test_file_input_submit_parse_error_keeps_prompt_open() {
+        let invalid_path = temp_file_path("open-invalid");
+        fs::write(&invalid_path, "TRACE https://example.com")
+            .expect("should write invalid temp request file");
+
+        let mut app = app_with_requests(vec![request("https://first.example.com")]);
+        app.open_file_prompt = Some(invalid_path.display().to_string());
+
+        app.update(Message::FileInputSubmit);
+
+        assert_eq!(
+            app.open_file_prompt,
+            Some(invalid_path.display().to_string())
+        );
+        assert!(
+            matches!(&app.open_file_error, Some(message) if message.contains("Parse error at line 1"))
+        );
+        assert!(!matches!(app.status, AppStatus::Error(_)));
+        assert_eq!(app.requests, vec![request("https://first.example.com")]);
+        assert_eq!(app.file_path, PathBuf::from("requests.http"));
+
+        fs::remove_file(&invalid_path).expect("should remove temp request file");
+    }
+
+    #[test]
+    fn test_file_input_submit_resolves_relative_to_current_file_dir() {
+        let current_path = temp_file_path("open-current");
+        let sibling_path = temp_file_path("open-sibling");
+        fs::write(&current_path, "GET https://current.example.com")
+            .expect("should write temp request file");
+        fs::write(&sibling_path, "GET https://sibling.example.com")
+            .expect("should write temp request file");
+
+        let sibling_name = sibling_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("temp file name should be valid unicode")
+            .to_string();
+        let mut app = App::new(current_path.clone(), parsed_file(vec![], vec![]));
+        app.open_file_prompt = Some(sibling_name);
+
+        app.update(Message::FileInputSubmit);
+
+        assert_eq!(app.open_file_prompt, None);
+        assert_eq!(app.file_path, sibling_path.clone());
+        assert_eq!(app.requests.len(), 1);
+        assert_eq!(app.requests[0].url, "https://sibling.example.com");
+
+        fs::remove_file(&current_path).expect("should remove temp request file");
+        fs::remove_file(&sibling_path).expect("should remove temp request file");
+    }
+
+    #[test]
+    fn test_reload_after_open_targets_new_file() {
+        let second_path = temp_file_path("open-then-reload");
+        fs::write(&second_path, "GET https://second.example.com/v1")
+            .expect("should write temp request file");
+
+        let mut app = app_with_requests(vec![request("https://first.example.com")]);
+        app.open_file_prompt = Some(second_path.display().to_string());
+        app.update(Message::FileInputSubmit);
+
+        fs::write(&second_path, "GET https://second.example.com/v2")
+            .expect("should rewrite temp request file");
+        app.update(Message::ReloadFile);
+
+        assert_eq!(app.file_path, second_path.clone());
+        assert_eq!(app.requests.len(), 1);
+        assert_eq!(app.requests[0].url, "https://second.example.com/v2");
+
+        fs::remove_file(&second_path).expect("should remove temp request file");
+    }
+
+    #[test]
+    fn test_file_input_submit_clamps_selected_and_last_sent_index() {
+        let second_path = temp_file_path("open-clamp");
+        fs::write(&second_path, "GET https://second.example.com/only")
+            .expect("should write temp request file");
+
+        let mut app = app_with_requests(vec![
+            request("https://first.example.com/one"),
+            request("https://first.example.com/two"),
+            request("https://first.example.com/three"),
+        ]);
+        app.selected_index = 2;
+        app.last_sent_index = Some(2);
+        app.open_file_prompt = Some(second_path.display().to_string());
+
+        app.update(Message::FileInputSubmit);
+
+        assert_eq!(app.selected_index, 0);
+        assert_eq!(app.last_sent_index, None);
+
+        fs::remove_file(&second_path).expect("should remove temp request file");
     }
 }

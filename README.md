@@ -66,6 +66,7 @@ restui <file.http> [--timeout <secs>] [--no-verify]
 | f | Toggle fullscreen of focused pane |
 | Esc | Exit fullscreen |
 | Shift+R | Reload file from disk |
+| o | Open another .http file |
 | ? | Toggle help |
 | q / Ctrl+C | Quit |
 

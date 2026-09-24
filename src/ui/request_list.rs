@@ -106,6 +106,8 @@ mod tests {
             size: (0, 0),
             last_sent_index: None,
             show_help: false,
+            open_file_prompt: None,
+            open_file_error: None,
             fullscreen: false,
             show_request_detail: false,
             detail_scroll_offset: 0,
