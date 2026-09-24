@@ -5,6 +5,9 @@
 
 A terminal UI REST client for `.http` request files.
 
+> [!WARNING]
+> restui is at the prototype stage. We do not recommend using it yet — expect rough edges, breaking changes, and missing features.
+
 ![restui overall](assets/restui-overall.png)
 
 ## Features

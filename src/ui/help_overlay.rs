@@ -16,9 +16,9 @@ const HELP_TEXT: &str = "\
    Enter     Send selected request
    d         Toggle request detail
    f         Toggle fullscreen of focused pane
-    Esc       Exit fullscreen
-    R         Reload file from disk
-    o         Open another .http file
+   Esc       Exit fullscreen
+   R         Reload file from disk
+   o         Open another .http file
 
  Application
    ?         Toggle this help
