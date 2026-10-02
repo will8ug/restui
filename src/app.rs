@@ -404,8 +404,7 @@ impl App {
             }
             Message::FileInputSubmit => {
                 if let Some(buffer) = self.open_file_prompt.take() {
-                    let path = resolve_open_file_path(&self.file_path, &buffer);
-                    match self.load_file(&path) {
+                    match self.load_file(Path::new(&buffer)) {
                         Ok(()) => self.open_file_error = None,
                         Err(message) => {
                             self.open_file_prompt = Some(buffer);
@@ -465,19 +464,6 @@ fn open_file_prefill(file_path: &Path) -> String {
         Some(parent) if !parent.as_os_str().is_empty() => format!("{}/", parent.display()),
         _ => "./".to_string(),
     }
-}
-
-fn resolve_open_file_path(current_file: &Path, input: &str) -> PathBuf {
-    let input = Path::new(input);
-    if input.is_absolute() {
-        return input.to_path_buf();
-    }
-
-    let base = current_file
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    base.join(input)
 }
 
 #[cfg(test)]
@@ -1743,7 +1729,22 @@ mod tests {
     }
 
     #[test]
-    fn test_file_input_submit_resolves_relative_to_current_file_dir() {
+    fn test_file_input_submit_resolves_relative_input_against_cwd() {
+        let mut app = app_with_requests(vec![request("https://first.example.com")]);
+        app.file_path = PathBuf::from("missing-dir/basic.http");
+        app.open_file_prompt = Some("missing-dir/local-apis.http".to_string());
+
+        app.update(Message::FileInputSubmit);
+
+        let error = app
+            .open_file_error
+            .expect("submit of missing file should set an error");
+        assert!(error.contains("Failed to read missing-dir/local-apis.http"));
+        assert!(!error.contains("missing-dir/missing-dir"));
+    }
+
+    #[test]
+    fn test_file_input_submit_prefill_flow_opens_sibling_of_current_file() {
         let current_path = temp_file_path("open-current");
         let sibling_path = temp_file_path("open-sibling");
         fs::write(&current_path, "GET https://current.example.com")
@@ -1757,12 +1758,16 @@ mod tests {
             .expect("temp file name should be valid unicode")
             .to_string();
         let mut app = App::new(current_path.clone(), parsed_file(vec![], vec![]));
-        app.open_file_prompt = Some(sibling_name);
+        app.update(Message::OpenFile);
+        for character in sibling_name.chars() {
+            app.update(Message::FileInputChar(character));
+        }
 
         app.update(Message::FileInputSubmit);
 
         assert_eq!(app.open_file_prompt, None);
-        assert_eq!(app.file_path, sibling_path.clone());
+        assert_eq!(app.open_file_error, None);
+        assert_eq!(app.file_path, sibling_path);
         assert_eq!(app.requests.len(), 1);
         assert_eq!(app.requests[0].url, "https://sibling.example.com");
 
