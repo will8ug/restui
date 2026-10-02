@@ -18,8 +18,6 @@ A terminal UI REST client for `.http` request files.
 - Inspect formatted responses, headers, timing, and size metadata
 - Reload request files without restarting the app
 
-![restui shortcuts](assets/restui-shortcuts.png)
-
 ## Installation
 
 **npm** (prebuilt binaries for macOS arm64/x64 and Linux x64):
