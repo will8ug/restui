@@ -1,6 +1,6 @@
 [package]
 name = "restui"
-version = "0.1.4"
+version = "0.1.4-alpha"
 edition = "2024"
 authors = ["Will Yuan"]
 description = "A TUI REST client"
